@@ -206,8 +206,8 @@ if (not is_bool())
         throw json_exception {"stai provando a prendere un bool da un json che non è di tipo bool"};
     return pimpl->condizione;
 }
-// se this è un json(string), ritorno il valore del string corrispondente (const)
-string const& json::get_string() const{
+// se this è un json(string), ritorno il valore del string corrispondente 
+string& json::get_string() {
 if (not is_string())
         throw json_exception {"stai provando a prendere un string da un json che non è di tipo string"};
     return pimpl->stringa;
@@ -218,3 +218,154 @@ if (not is_string())
         throw json_exception {"stai provando a prendere un string da un json che non è di tipo string"};
     return pimpl->stringa;
 }
+// se this è un json(string), cambio il valore della string corrispondente. altrimenti, elimino tutto e lo faccio diventare stringa
+void json::set_string(string const& x){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set string, il delete everything non ritorna un null"};
+    pimpl->Tipo = pimpl->str;
+    pimpl->stringa = x;
+    if (get_string() != x) 
+        throw json_exception{"in set string, l'assegnamento ha qualcosa che non va"};
+    if (is_bool() or is_dictionary() or !is_string() or is_number() or is_null() or is_list()) 
+        throw json_exception{"in set string, il tipo non viene settato correttamente"};   
+}
+// se this è un json(bool), cambio il valore bool corrispondente. altrimenti, elimino tutto e lo faccio diventare bool
+void json::set_bool(bool x){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set bool, il delete everything non ritorna un null"};
+    pimpl->Tipo = pimpl->cond;
+    pimpl->condizione = x;
+    if (get_bool() != x) 
+        throw json_exception{"in set bool, l'assegnamento ha qualcosa che non va"};
+    if (!is_bool() or is_dictionary() or is_string() or is_number() or is_null() or is_list()) 
+        throw json_exception{"in set bool, il tipo non viene settato correttamente"};   
+}
+// se this è un json(num), cambio il valore num corrispondente. altrimenti, elimino tutto e lo faccio diventare num
+void json::set_number(double x){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set number, il delete everything non ritorna un null"};
+    pimpl->Tipo = pimpl->num;
+    pimpl->numero = x;
+    if (get_number() != x) 
+        throw json_exception{"in set num, l'assegnamento ha qualcosa che non va"};
+    if (is_bool() or is_dictionary() or is_string() or !is_number() or is_null() or is_list()) 
+        throw json_exception{"in set num, il tipo non viene settato correttamente"};   
+}
+// rendo this un json(null)
+void json::set_null(){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set null, il delete everything non ritorna un null"};
+}
+// rendo this un json(list) con lista vuota
+void json::set_list(){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set list, il delete everything non ritorna un null"};
+    pimpl->Tipo = pimpl->lis;
+    if (is_bool() or is_dictionary() or is_string() or is_number() or is_null() or !is_list()) 
+        throw json_exception{"in set list, il tipo non viene settato correttamente"};   
+}
+// rendo this un json(list) con lista vuota
+void json::set_dictionary(){
+    pimpl->delete_everything();
+    if (is_bool() or is_dictionary() or is_string() or is_number() or !is_null() or is_list()) 
+        throw json_exception{"in set dict, il delete everything non ritorna un null"};
+    pimpl->Tipo = pimpl->diz;
+    if (is_bool() or !is_dictionary() or is_string() or is_number() or is_null() or is_list()) 
+        throw json_exception{"in set dict, il tipo non viene settato correttamente"};   
+}
+// se this è json(list), aggiungo x in testa, altrimenti throw exception
+void json::push_front(json const& x){
+    if (not is_list()){
+        if (pimpl->list_head == nullptr) {
+            pimpl->list_head = pimpl->list_tail = new impl::Lista;
+            pimpl->list_head->next = nullptr;
+            pimpl->list_head->info = x;
+        }
+        else {
+            impl::List nuova = new impl::Lista;
+            nuova->info = x;
+            nuova->next = pimpl->list_head;
+            pimpl->list_head = nuova;
+        }
+    }
+    else throw json_exception {"stai facendo una  push front in un json di tipo non list"};
+}
+// se this è json(list), aggiungo x in coda, altrimenti throw exception
+void json::push_back(json const& x){
+    if (not is_list()){
+        if (pimpl->list_head == nullptr) {
+            pimpl->list_head = pimpl->list_tail = new impl::Lista;
+            pimpl->list_head->next = nullptr;
+            pimpl->list_head->info = x;
+        }
+        else {
+            impl::List nuova = new impl::Lista;
+            nuova->info = x;
+            nuova->next = nullptr;
+            pimpl->list_tail = pimpl->list_tail->next = nuova;
+        }
+    }
+    else throw json_exception {"stai facendo una  push back in un json di tipo non list"};
+}
+// se this è json(dict), aggiungo x. altrimenti throw exception
+// non c'è bisogno di controllare se esiste già una coppia nel dizionario la cui chiave è x.first
+void json::insert(pair<string,json> const& x){
+    // lo inserisco in testa
+    if (not is_dictionary()){
+        if (pimpl->dict_head == nullptr) {
+            pimpl->dict_head = pimpl->dict_tail = new impl::Dizionario;
+            pimpl->dict_head->next = nullptr;
+            pimpl->dict_head->info = x;
+        }
+        else {
+            impl::Dict nuova = new impl::Dizionario;
+            nuova->info = x;
+            nuova->next = pimpl->dict_head;
+            pimpl->dict_head = nuova;
+        }
+    }
+    else throw json_exception {"stai facendo una insert in un json di tipo non dict"};
+}
+// metodi per accedere dall'esterno al contenuto del container (const)
+json const& json::operator[](std::string const& key) const{
+    if (is_dictionary()){
+        impl::Dict aux = pimpl->dict_head;
+        bool found = false;
+        while(aux != nullptr and !found) {
+            if (aux->info.first == key) {
+                found = true;
+            }
+            else aux = aux->next;
+        }
+        if (found) return aux->info.second;
+        else throw json_exception {"non puoi aggiungere una copia chiave valore nel dizionario in un contesto const"};
+    }
+    else throw json_exception {"l'operator [] funziona solo su json di tipo dict"};
+
+}
+// metodo per accedere dall'esterno al contenuto del container
+json& json::operator[](std::string const& key){
+    if (is_dictionary()){
+        impl::Dict aux = pimpl->dict_head;
+        bool found = false;
+        while(aux != nullptr and !found) {
+            if (aux->info.first == key) {
+                found = true;
+            }
+            else aux = aux->next;
+        }
+        if (found) return aux->info.second;
+        else {
+            insert(pair<string, json> {key, json{}}); // lo inserisce in testa
+            return pimpl->dict_head->info.second;
+        }
+    }
+    else throw json_exception {"l'operator [] funziona solo su json di tipo dict"};
+}
+
+
