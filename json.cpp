@@ -194,3 +194,27 @@ double const& json::get_number() const {
         throw json_exception {"stai provando a prendere un numero da un json che non è di tipo number"};
     return pimpl->numero;
 }
+// se this è un json(bool), ritorno il valore del bool corrispondente
+bool& json::get_bool(){
+    if (not is_bool())
+        throw json_exception {"stai provando a prendere un bool da un json che non è di tipo bool"};
+    return pimpl->condizione;
+}
+// se this è un json(bool), ritorno il valore del bool corrispondente (const)
+bool const& json::get_bool() const{
+if (not is_bool())
+        throw json_exception {"stai provando a prendere un bool da un json che non è di tipo bool"};
+    return pimpl->condizione;
+}
+// se this è un json(string), ritorno il valore del string corrispondente (const)
+string const& json::get_string() const{
+if (not is_string())
+        throw json_exception {"stai provando a prendere un string da un json che non è di tipo string"};
+    return pimpl->stringa;
+}
+// se this è un json(string), ritorno il valore del string corrispondente (const)
+string const& json::get_string() const{
+if (not is_string())
+        throw json_exception {"stai provando a prendere un string da un json che non è di tipo string"};
+    return pimpl->stringa;
+}
