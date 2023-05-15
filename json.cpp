@@ -1,5 +1,8 @@
 #include "json.hpp"
+#pragma once
 
+using std::cout;
+using std::cin;
 using std::string;
 using std::pair;
 using std::endl;
@@ -27,7 +30,7 @@ struct json::impl {
     Dict dict_head, dict_tail;
 
     void delete_everything();   // riporta un qualsiasi json a tipo "null". ma non dealloca pimpl
-    void copy(json const & rhs);    // su un json di tipo null, copia (deep) lo stato di rhs su this
+    void copy(json const & rhs);   // su un json di tipo null, copia (deep) lo stato di rhs su this
     void cancella_list();  // dealloca la lista e setta a nullptr i puntatori
     void cancella_dict();  // dealloca la lista e setta a nullptr i puntatori
     void copia_list(List const & rhs);// copio una lista da un oggetto a this (vuoto)
@@ -367,5 +370,506 @@ json& json::operator[](std::string const& key){
     }
     else throw json_exception {"l'operator [] funziona solo su json di tipo dict"};
 }
+// struttura iteratore lista
+struct json::list_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
 
+        list_iterator(impl::List);
+        json& operator*() const;
+        json* operator->() const;
+        list_iterator& operator++();    // ++it
+        list_iterator operator++(int);  // it++
 
+        bool operator==(list_iterator const&) const; //it1 == it2
+        bool operator!=(list_iterator const&) const; //it1 != it2
+        operator bool() const; //casting comparativo (bool)
+    private:
+        impl::List it_ptr; 
+};
+// struttura iteratore dizionario
+struct json::dictionary_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+
+        dictionary_iterator(impl::Dict);
+        pair<string, json>& operator*() const;
+        pair<string, json>* operator->() const;
+        dictionary_iterator& operator++();    // ++it
+        dictionary_iterator operator++(int);  // it++
+
+        bool operator==(dictionary_iterator const&) const; //it1 == it2
+        bool operator!=(dictionary_iterator const&) const; //it1 != it2
+        operator bool() const; //casting comparativo (bool)
+    private:
+        impl::Dict it_ptr; 
+};
+// struttura iteratore lista const
+struct json::const_list_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+
+        const_list_iterator(impl::List);
+        json& operator*() const;
+        json* operator->() const;
+        const_list_iterator& operator++();    // ++it
+        const_list_iterator operator++(int);  // it++
+
+        bool operator==(const_list_iterator const&) const; //it1 == it2
+        bool operator!=(const_list_iterator const&) const; //it1 != it2
+        operator bool() const; //casting comparativo (bool)
+    private:
+        impl::List it_ptr; 
+};
+// struttura iteratore dizionario const
+struct json::const_dictionary_iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+
+        const_dictionary_iterator(impl::Dict);
+        pair<string, json>& operator*() const;
+        pair<string, json>* operator->() const;
+        const_dictionary_iterator& operator++();    // ++it
+        const_dictionary_iterator operator++(int);  // it++
+
+        bool operator==(const_dictionary_iterator const&) const; //it1 == it2
+        bool operator!=(const_dictionary_iterator const&) const; //it1 != it2
+        operator bool() const; //casting comparativo (bool)
+    private:
+        impl::Dict it_ptr; 
+};
+//costruttore default list_iterator
+json::list_iterator::list_iterator(impl::List p) : it_ptr(p) {}
+//costruttore default const_list_iterator
+json::const_list_iterator::const_list_iterator(impl::List p) : it_ptr(p) {}
+//costruttore default dict_iterator
+json::dictionary_iterator::dictionary_iterator(impl::Dict p) : it_ptr(p) {}
+//costruttore default const_dict_iterator
+json::const_dictionary_iterator::const_dictionary_iterator(impl::Dict p) : it_ptr(p) {}
+//operatore di dereferenziazione list_iterator
+json& json::list_iterator::operator*() const{
+    return it_ptr->info;
+}
+//operatore di dereferenziazione const_list_iterator
+json& json::const_list_iterator::operator*() const{
+    return it_ptr->info;    
+}
+//operatore di dereferenziazione dictionary_iterator
+pair<string, json>& json::dictionary_iterator::operator*() const{
+    return it_ptr->info;    
+}
+//operatore di dereferenziazione const_dictionary_iterator 
+pair<string, json>& json::const_dictionary_iterator::operator*() const{
+    return it_ptr->info;    
+}
+//operatore-> const_list_iterator
+json* json::list_iterator::operator->() const{
+    return &(it_ptr->info);
+}
+//operatore-> const_list_iterator
+json* json::const_list_iterator::operator->() const{
+    return &(it_ptr->info);    
+}
+//operatore-> dictionary_iterator
+pair<string, json>* json::dictionary_iterator::operator->() const{
+    return &(it_ptr->info);    
+}
+//operatore-> const_dictionary_iterator 
+pair<string, json>* json::const_dictionary_iterator::operator->() const{
+    return &(it_ptr->info);    
+}
+// prefix increment per list_iterator
+json::list_iterator& json::list_iterator::operator++(){
+    it_ptr = it_ptr->next;
+	return *this;
+}
+// prefix increment per const_list_iterator
+json::const_list_iterator& json::const_list_iterator::operator++(){
+    it_ptr = it_ptr->next;
+	return *this;
+}
+// prefix increment per dicttionary_iterator
+json::dictionary_iterator& json::dictionary_iterator::operator++(){
+    it_ptr = it_ptr->next;
+	return *this;
+}
+// prefix increment per const_dictionary_iterator
+json::const_dictionary_iterator& json::const_dictionary_iterator::operator++(){
+    it_ptr = it_ptr->next;
+	return *this;
+}
+// postfix increment per list_iterator
+json::list_iterator json::list_iterator::operator++(int){
+	list_iterator it = {it_ptr};
+	++(*this);
+	return it;
+}
+// postfix increment per const_list_iterator
+json::const_list_iterator json::const_list_iterator::operator++(int){
+	const_list_iterator it = {it_ptr};
+	++(*this);
+	return it;
+}
+// postfix increment per dicttionary_iterator
+json::dictionary_iterator json::dictionary_iterator::operator++(int){
+	dictionary_iterator it = {it_ptr};
+	++(*this);
+	return it;
+}
+// postfix increment per const_dictionary_iterator
+json::const_dictionary_iterator json::const_dictionary_iterator::operator++(int){
+	const_dictionary_iterator it = {it_ptr};
+	++(*this);
+	return it;
+}
+// operator== per list_iterator: ritorna true iff it1 e it2 puntano alla stessa area di memoria 
+bool json::list_iterator::operator==(list_iterator const& rhs) const{
+	return it_ptr == rhs.it_ptr;
+}
+// operator== per dict_iterator: ritorna true iff it1 e it2 puntano alla stessa area di memoria 
+bool json::dictionary_iterator::operator==(dictionary_iterator const& rhs) const{
+	return it_ptr == rhs.it_ptr;
+}
+// operator== per const_list_iterator: ritorna true iff it1 e it2 puntano alla stessa area di memoria 
+bool json::const_list_iterator::operator==(const_list_iterator const& rhs) const{
+	return it_ptr == rhs.it_ptr;
+}
+// operator== per const_dict_iterator: ritorna true iff it1 e it2 puntano alla stessa area di memoria 
+bool json::const_dictionary_iterator::operator==(const_dictionary_iterator const& rhs) const{
+	return it_ptr == rhs.it_ptr;
+}
+// operator!= per list_iterator: ritorna true iff it1 e it2 non puntano alla stessa area di memoria 
+bool json::list_iterator::operator!=(list_iterator const& rhs) const{
+	return it_ptr != rhs.it_ptr;
+}
+// operator!= per dict_iterator: ritorna true iff it1 e it2 non puntano alla stessa area di memoria 
+bool json::dictionary_iterator::operator!=(dictionary_iterator const& rhs) const{
+	return it_ptr != rhs.it_ptr;
+}
+// operator!= per const_list_iterator: ritorna true iff it1 e it2 non  puntano alla stessa area di memoria 
+bool json::const_list_iterator::operator!=(const_list_iterator const& rhs) const{
+	return it_ptr != rhs.it_ptr;
+}
+// operator!= per const_dict_iterator: ritorna true iff it1 e it2 non puntano alla stessa area di memoria 
+bool json::const_dictionary_iterator::operator!=(const_dictionary_iterator const& rhs) const{
+	return it_ptr != rhs.it_ptr;
+}
+//eseguo casting a bool su list_iterator
+json::list_iterator::operator bool() const{
+    return it_ptr != nullptr;
+}
+//eseguo casting a bool su const_list_iterator
+json::const_list_iterator::operator bool() const{
+    return it_ptr != nullptr;
+}
+//eseguo casting a bool su dict_iterator
+json::dictionary_iterator::operator bool() const{
+    return it_ptr != nullptr;
+}
+//eseguo casting a bool su const_dictionary_iterator
+json::const_dictionary_iterator::operator bool() const{
+    return it_ptr != nullptr;
+}
+// iteratore begin() su list_iterator
+json::list_iterator json::begin_list(){
+    return list_iterator {json::pimpl->list_head};
+}
+// iteratore begin() su const_list_iterator
+json::const_list_iterator json::begin_list() const{
+    return const_list_iterator {json::pimpl->list_head};
+}
+// iteratore end() su list_iterator
+json::list_iterator json::end_list(){
+    return list_iterator {json::pimpl->list_tail};
+
+}
+// iteratore end() su constlist_iterator
+json::const_list_iterator json::end_list() const{
+    return const_list_iterator {json::pimpl->list_tail};
+
+}
+// iteratore begin() su dict_iterator
+json::dictionary_iterator json::begin_dictionary(){
+    return dictionary_iterator{json::pimpl->dict_head};
+
+}
+// iteratore begin() su onst_dict_iterator
+json::const_dictionary_iterator json::begin_dictionary() const{
+    return const_dictionary_iterator{json::pimpl->dict_head};
+}
+// iteratore end() su dict_iterator
+json::dictionary_iterator json::end_dictionary(){
+    return dictionary_iterator{json::pimpl->dict_tail};
+}
+// iteratore end() su const_dict_iterator
+json::const_dictionary_iterator json::end_dictionary() const{
+    return const_dictionary_iterator{json::pimpl->dict_tail};
+}
+/**
+ * GRAMMATICA:
+ * pongo µ = vuoto/null
+ * T ->     number  |   true    |   false
+ * J ->     [L] |   {D}     |   "S"     |   T   | SOLO IN CASO ESTERNO : µ
+ * S ->     µ   |   stringa |    S\"S
+ * L ->     µ   |   J       |   J,L     |   T   |   T,L
+ * D ->     "S":J   |   "S":J,D  |   µ
+ * terminali: null, number, true, false, stringa.
+ * non terminali: S (stringa), L (lista), D (dizionario), J (json)
+*/
+
+//Lancia una eccezione di parsing in formato standard
+void error_handler(string exp /*carattere/i che mi aspettavo di leggere*/, char obt /*cosa ho ottenuto*/, uint64_t pos){
+    string errore{"Sono in posizione "};
+    errore.append(std::to_string(pos));
+    errore.append(". Mi aspettavo qualcosa come: ");
+    errore+=exp;
+    errore.append(", ma ho ottenuto: ");
+    errore+=obt;
+    throw json_exception {errore};
+}
+//forward declarations. pos indica il numero di caratteri estratti per ogni chiamata.
+//mi è particolarmente utile per vedere 
+
+//parsa i tipi terminali
+json JTERM (std::istream& rhs, uint64_t pos);
+//parsa i tipi stringa
+json JSTRING (std::istream& rhs, uint64_t pos);
+//parsa i tipi lista
+json JLIST (std::istream& rhs, uint64_t pos);
+//parsa i tipi dizionario
+json JDICT (std::istream& rhs, uint64_t pos);
+//parsa i tipi json
+json J (std::istream& rhs, uint64_t pos);
+
+/*returns true if char c is NOT a valid initial character of Json type*/
+bool controllo_carattere_errore_j(char c){
+    if ((c != '-') or  (c != '.') or not (c >= '0' and c <= '9') or
+    (c != '+') or  (c != '[') or (c != 't') or  (c != 'f') or (c != '{') or (c != 'n'))
+        return true;
+}
+// Jason generico: J ->  µ | number | [L] | true | false | {D}
+json J (std::istream& rhs, uint64_t pos){
+    /**
+     * per prima cosa gestisco il caso più esterno.
+     * 
+     * 
+     * In generale, tutti i casi "lista vuota" "dizionario vuoto" e "stringa vuota" sono
+     * controllati da D, S, L rispettivamente, quindi escluso il caso iniziale di json null, 
+     * non ho da controllare se ho un valore vuoto. 
+     * Viene fatto dalle funzioni controllando se il carattere successivo è ] o } o ", 
+     * e in quel caso manco viene chiamato J 
+    */
+    json j;
+    char c;
+    
+    if (pos == 0 /*non ho ancora estratto nulla*/) {
+        if (rhs.eof()) return json{}; //se il file è vuoto, ritorno un json{null}
+        
+        rhs>>c;
+        if (c != '[' and c!='{' and c != '"') {
+            rhs.putback(c);
+            j = JTERM(rhs, pos);    //già qui dentro controllo la correttezza dei caratteri iniziali
+        }
+        else if (c == '"') {
+            j = JSTRING(rhs, ++pos);
+            if (rhs.eof()) error_handler("\"", EOF, pos);
+            rhs>>c;
+            pos++;
+            if (c != '"') error_handler("\"", c, pos);
+        }
+        else {
+            j = c=='[' ? JLIST(rhs, ++pos) : JDICT(rhs, ++pos); //mi rimane controllare i casi lista e dizionario
+            if (rhs.eof()) error_handler("] o }", EOF, pos);
+            char c2;
+            rhs>>c2;
+            pos++;
+            if (c == '[' and c2 != ']') error_handler("]", c, pos);
+            if (c == '{' and c2 != '}') error_handler("}", c, pos);
+        }
+
+        if  (not rhs.eof()) {
+            rhs>>c;
+            error_handler("il file deve finire qui", c, pos);
+        }
+    }
+    else {
+        if (rhs.eof()) error_handler("un carattere qualsiasi", EOF, pos);
+
+        rhs>>c;
+        
+        if (controllo_carattere_errore_j(c)){
+            error_handler("un carattere di inizio di json, vedi commento", c, pos);
+        }
+        if (c == '[') {
+            ++pos;  //consumo [
+            j = JLIST(rhs, pos); //input di lista
+            rhs>>c; pos++;  //consumo ]
+            if (c != ']') error_handler("carattere di fine lista ] ", c, pos);
+        }
+        else if (c == '{') {
+            ++pos;
+            j = JDICT(rhs,pos);
+            rhs>>c; pos++;
+            if (c != '}') error_handler("carattere di fine dizionario } ", c, pos);
+        }
+        else if (c == '"'){
+            ++pos;
+            j = JDICT(rhs,pos);
+            rhs>>c; pos++;
+            if (c != '"') error_handler("carattere di fine stringa \"", c, pos);
+        }
+        else {
+            // caso Terminale
+            rhs.putback(c);
+            j = JTERM(rhs, pos);
+        }
+    }
+    return j;
+}
+// Json List: L ->     µ   |   J     |   J,L
+json JLIST (std::istream& rhs, uint64_t pos){
+    json j;
+    j.set_list(); // lo rendo una lista
+    char c;
+    rhs>>c; 
+
+    //primo caso: mi trovo con ] e basta (equivale a µ).
+    if (c == ']') {
+        /* caso in cui ho la lista così: []. zero elementi. ritorno un json di tipo list ma con lista vuota*/
+        rhs.putback(c); //la ] è gestita dal chiamante di JLIST
+        return j;
+    }
+
+    //secondo caso: mi trovo con ,L . caso particolare di J,L (J è µ)
+    if (c == ','){  
+        /**caso in cui trovo una lista di n elementi, il cui primo (rispetto alla coppia che sto considerando) è null:
+         * ritorno una lista il cui primo elemento è una cella di tipo json{null}.
+        */
+        j.push_back(json{}); //prima cella: vuota
+        pos++; // consumo la ','
+        j.push_back(JLIST(rhs, pos)); // seconda cella: chiamata ricorsiva al parser delle liste
+        return j;
+    }
+
+    // terzo caso generale: mi trovo con J,L oppure J e basta.
+    if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
+    if (controllo_carattere_errore_j(c)){
+        error_handler("un carattere di inizio di json, vedi commento", c, pos);
+    }
+
+    j.push_back(J(rhs, pos));   //prima cella: gestisco il J.
+    // dopo aver chiamato ricorsivamente J, mi aspetto di trovare una virgola o una chiusura lista.
+    // oppure entrambe (da gestire.).
+
+    rhs>>c;
+    if (c == ']') {
+        /*caso di fine lista: J e basta*/
+        rhs.putback(c);
+    }
+    else if (c == ','){
+        if(rhs.eof()) 
+            error_handler("dopo la virgola non ho trovato più nulla",EOF,pos);
+        else{
+            char c2;
+            rhs>>c2; 
+            pos++; // consumo la ','
+            if (c2 == ']'){
+                /*caso di fine lista*/
+                rhs.putback(c2); // ributto dentro la ']', che viene gestita dal chiamante.
+                j.push_back(json{}); //ci butto dentro una cella vuota e sono a posto.
+                return j;
+            }
+            else {
+                /*caso in cui dopo la virgola ci sia */
+                if(rhs.eof()) 
+                    error_handler("dopo la virgola mi trovo a fine file, ero in una lista e non c'è carattere ']'",EOF,pos);
+                if (controllo_carattere_errore_j(c2) and c2 != ',' /*potrei trovarmi una lista con tanti [,,,]. ovviamente valida*/) 
+                    error_handler("un carattere di inizio di json oppure una virgola", c2, pos);
+                else {
+                    //devo quindi chiamare ricorsivamente questa stessa funzione 
+                    rhs.putback(c2);
+                    j.push_back(JLIST(rhs, pos));
+                }
+            }
+        }
+    }
+    else error_handler("']' o ',' nella lista al posto di x: ho visto Jx", c, pos);
+    return j;
+}
+// Json DICT: "S":J   |   "S":J,D  |   µ
+json JDICT (std::istream& rhs, uint64_t pos){
+    json j;
+    j.set_dictionary(); // lo rendo un dizionario
+    char c;
+    rhs>>c; 
+
+    //primo caso: mi trovo con } e basta (equivale a µ).
+    if (c == '}') {
+        /* caso in cui ho il dict così: {}. zero elementi. ritorno un json di tipo dict ma con lista vuota*/
+        rhs.putback(c); //la } è gestita dal chiamante di JDICT
+        return j;
+    }
+
+    //secondo caso: mi trovo con ,D . caso particolare di J,D (J è µ)
+    if (c == ','){  
+        /**
+         * caso in cui trovo un DICT di n elementi, il cui primo (rispetto alla coppia che sto considerando) è null:
+         * ritorno una lista il cui primo elemento è una cella di tipo json{null}.
+        */
+        j.insert(pair<string, json>{"", json{}}); //prima cella: vuota
+        pos++; // consumo la ','
+        j.push_back(JDICT(rhs, pos)); // seconda cella: chiamata ricorsiva al parser dei dict
+        return j;
+    }
+
+    // terzo caso: generale: mi trovo con J,L oppure J e basta.
+    if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
+    if (controllo_carattere_errore_j(c)){
+        error_handler("un carattere di inizio di json, vedi commento", c, pos);
+    }
+
+    j.push_back(J(rhs, pos));   //prima cella: gestisco il J.
+    // dopo aver chiamato ricorsivamente J, mi aspetto di trovare una virgola o una chiusura lista.
+    // oppure entrambe (da gestire.).
+
+    rhs>>c;
+    if (c == ']') {
+        /*caso di fine lista: J e basta*/
+        rhs.putback(c);
+    }
+    else if (c == ','){
+        if(rhs.eof()) 
+            error_handler("dopo la virgola non ho trovato più nulla",EOF,pos);
+        else{
+            char c2;
+            rhs>>c2; 
+            pos++; // consumo la ','
+            if (c2 == ']'){
+                /*caso di fine lista*/
+                rhs.putback(c2); // ributto dentro la ']', che viene gestita dal chiamante.
+                j.push_back(json{}); //ci butto dentro una cella vuota e sono a posto.
+                return j;
+            }
+            else {
+                /*caso in cui dopo la virgola ci sia */
+                if(rhs.eof()) 
+                    error_handler("dopo la virgola mi trovo a fine file, ero in una lista e non c'è carattere ']'",EOF,pos);
+                if (controllo_carattere_errore_j(c2) and c2 != ',' /*potrei trovarmi una lista con tanti [,,,]. ovviamente valida*/) 
+                    error_handler("un carattere di inizio di json oppure una virgola", c2, pos);
+                else {
+                    //devo quindi chiamare ricorsivamente questa stessa funzione 
+                    rhs.putback(c2);
+                    j.push_back(JLIST(rhs, pos));
+                }
+            }
+        }
+    }
+    else error_handler("']' o ',' nella lista al posto di x: ho visto Jx", c, pos);
+    return j;
+}
+std::ostream& operator<<(std::ostream& lhs, json const& rhs){
+
+}
+std::istream& operator>>(std::istream& lhs, json& rhs){
+
+}
