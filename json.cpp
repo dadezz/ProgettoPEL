@@ -631,15 +631,15 @@ void error_handler(string exp /*carattere/i che mi aspettavo di leggere*/, char 
 //mi è particolarmente utile per vedere 
 
 //parsa i tipi terminali
-json JTERM (std::istream& rhs, uint64_t pos);
+json& JTERM (std::istream& rhs, uint64_t pos);
 //parsa i tipi stringa
-json JSTRING (std::istream& rhs, uint64_t pos);
+json& JSTRING (std::istream& rhs, uint64_t pos);
 //parsa i tipi lista
-json JLIST (std::istream& rhs, uint64_t pos);
+json& JLIST (std::istream& rhs, uint64_t pos);
 //parsa i tipi dizionario
-json JDICT (std::istream& rhs, uint64_t pos);
+json& JDICT (std::istream& rhs, uint64_t pos);
 //parsa i tipi json
-json J (std::istream& rhs, uint64_t pos);
+json& J (std::istream& rhs, uint64_t pos);
 
 /*returns true if char c is NOT a valid initial character of Json type*/
 bool controllo_carattere_errore_j(char c){
@@ -648,7 +648,7 @@ bool controllo_carattere_errore_j(char c){
         return true;
 }
 // Jason generico: J ->  µ | number | [L] | true | false | {D}
-json J (std::istream& rhs, uint64_t pos){
+json& J (std::istream& rhs, uint64_t pos){
     /**
      * per prima cosa gestisco il caso più esterno.
      * 
@@ -663,8 +663,10 @@ json J (std::istream& rhs, uint64_t pos){
     char c;
     
     if (pos == 0 /*non ho ancora estratto nulla*/) {
-        if (rhs.eof()) return json{}; //se il file è vuoto, ritorno un json{null}
-        
+        if (rhs.eof()) {
+            json z; //se il file è vuoto, ritorno un json{null}
+            return z;
+        }
         rhs>>c;
         if (c != '[' and c!='{' and c != '"') {
             rhs.putback(c);
@@ -727,7 +729,7 @@ json J (std::istream& rhs, uint64_t pos){
     return j;
 }
 // Json List: L ->     µ   |   J     |   J,L
-json JLIST (std::istream& rhs, uint64_t pos){
+json& JLIST (std::istream& rhs, uint64_t pos){
     json j;
     j.set_list(); // lo rendo una lista
     char c;
@@ -797,7 +799,7 @@ json JLIST (std::istream& rhs, uint64_t pos){
     return j;
 }
 // Json DICT: "S":J   |   "S":J,D  |   µ
-json JDICT (std::istream& rhs, uint64_t pos){
+json& JDICT (std::istream& rhs, uint64_t pos){
     json j;
     j.set_dictionary(); // lo rendo un dizionario
     char c;
@@ -822,17 +824,58 @@ json JDICT (std::istream& rhs, uint64_t pos){
         return j;
     }
 
-    // terzo caso: generale: mi trovo con J,L oppure J e basta.
+    // terzo caso: generale: mi trovo con "S":J   |   "S":J,D  
+
+    pair<string, json> d {};
     if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
-    if (controllo_carattere_errore_j(c)){
-        error_handler("un carattere di inizio di json, vedi commento", c, pos);
+    rhs>>c; pos++; // consumo " di apertura chiave
+    if (c != '"') error_handler("\"", c, pos);
+    rhs>>c; //controllo carattere successivo per vedere se la stringa è vuota
+    if (c == '"'){
+        pos++;
     }
+    else {
+        rhs.putback(c); // rimentto al suo posto il carattere iniziale della stringa
+        json aux_per_stringa = JSTRING(rhs, pos);
+        d.first = aux_per_stringa.get_string();
+        if (rhs.eof()) error_handler("\"", EOF, pos); // devo trovarmi per forza una " (il getline in jstring usa le " come separatori)
+        rhs>>c; pos++; // consumo il " finale
+    }
+    if (rhs.eof()) error_handler(":", EOF, pos);
+    rhs>>c; pos++; //consumo :
+    if (c != ':')  error_handler(":", c, pos);
+    //ora controllo di non trovarmi una virgola o una parentesi }, in questo caso infatti, il valore json corrispondente alla chiave è null.
+    if (rhs.eof()) error_handler(":", EOF, pos);
+    rhs>>c; 
+    if (c == '}'){
+        rhs.putback(c); // la parentesi chiusa è gestitia dal chiamante
+        d.second = json{};
+        j.insert(d);
+        return j;
+    }    
+    else if (c == ','){
+        pos++; // consumo la ,
+        d.second = json{};
+        j.insert(d);
+        rhs>>c; // devo vedere se dopo ho una }
+        rhs.putback(c);
+        if (c == '}'){
+            j.insert(pair<string, json>{});
+            return j;
+        }
+        //soluzione sporca, ma non saprei come stradiamine fare una insert, che richiede
+        //tipo "pair" se la ricorsione ritorna un json{dict}.
+        json da_ins = JDICT(rhs, pos);
+        for (auto ptr = da_ins.begin_dictionary(); ptr != da_ins.end_dictionary(); ptr++){
+            j.insert(*ptr);
+        }
+        return j;
+    }
+    // a sto punto, mi manca solo da gestire il caso j
 
-    j.push_back(J(rhs, pos));   //prima cella: gestisco il J.
-    // dopo aver chiamato ricorsivamente J, mi aspetto di trovare una virgola o una chiusura lista.
-    // oppure entrambe (da gestire.).
 
-    rhs>>c;
+
+
     if (c == ']') {
         /*caso di fine lista: J e basta*/
         rhs.putback(c);
