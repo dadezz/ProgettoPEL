@@ -1,5 +1,5 @@
 #include "json.hpp"
-#pragma once
+#include <fstream>
 
 using std::cout;
 using std::cin;
@@ -8,7 +8,7 @@ using std::pair;
 using std::endl;
 
 struct json::impl {
-    enum tipologia {null, num, str, cond, lis, diz};
+    enum tipologia {nullo, num, str, cond, lis, diz};
     tipologia Tipo;
     double numero;
     bool condizione;
@@ -40,7 +40,7 @@ struct json::impl {
 // default constructor = sets json obj to "null" type
 json::json(){
     pimpl = new impl;
-    pimpl->Tipo = pimpl->null;
+    pimpl->Tipo = pimpl->nullo;
     pimpl->numero = 0;
     pimpl->stringa = "";
     pimpl->condizione = false;
@@ -61,7 +61,7 @@ json& json::operator=(json const& rhs){
 }
 // riporta un qualsiasi json a tipo "null". ma non dealloca pimpl
 void json::impl::delete_everything(){
-    Tipo = null;
+    Tipo = nullo;
     numero = 0;
     stringa = "";
     condizione = false;
@@ -94,7 +94,7 @@ json::~json(){
 // su un json di tipo null, copia (deep) lo stato di rhs su this
 void json::impl::copy(json const & rhs){
     //il json non ha liste, è già vuoto
-    if (Tipo != null)
+    if (Tipo != nullo)
         throw json_exception {"la funzione copy va chiamata su oggetto di tipo null."};
     Tipo = rhs.pimpl->Tipo;
     stringa = rhs.pimpl->stringa;
@@ -183,7 +183,7 @@ bool json::is_bool() const {
 }
 // return true if this is json(null)
 bool json::is_null() const {
-    return pimpl->Tipo == impl::null;
+    return pimpl->Tipo == impl::nullo;
 }
 // se thsi è un json(number) ritorno il valore del double corrispondente
 double& json::get_number(){
@@ -628,27 +628,30 @@ void error_handler(string exp /*carattere/i che mi aspettavo di leggere*/, char 
     throw json_exception {errore};
 }
 //forward declarations. pos indica il numero di caratteri estratti per ogni chiamata.
-//mi è particolarmente utile per vedere 
+//mi è particolarmente utile per vedere errori e il caso di inizio file
 
 //parsa i tipi terminali
-json& JTERM (std::istream& rhs, uint64_t pos);
+json JTERM (std::istream& rhs, uint64_t pos);
 //parsa i tipi stringa
-json& JSTRING (std::istream& rhs, uint64_t pos);
+string JSTRING (std::istream& rhs, uint64_t pos);
 //parsa i tipi lista
-json& JLIST (std::istream& rhs, uint64_t pos);
+json JLIST (std::istream& rhs, uint64_t pos);
 //parsa i tipi dizionario
-json& JDICT (std::istream& rhs, uint64_t pos);
+json JDICT (std::istream& rhs, uint64_t pos);
 //parsa i tipi json
-json& J (std::istream& rhs, uint64_t pos);
+json J (std::istream& rhs, uint64_t pos);
+//parsa i pair del dizionario
+pair<string, json> DICT (std::istream& rhs, uint64_t);
 
 /*returns true if char c is NOT a valid initial character of Json type*/
 bool controllo_carattere_errore_j(char c){
     if ((c != '-') or  (c != '.') or not (c >= '0' and c <= '9') or
     (c != '+') or  (c != '[') or (c != 't') or  (c != 'f') or (c != '{') or (c != 'n'))
         return true;
+    else return false;
 }
-// Jason generico: J ->  µ | number | [L] | true | false | {D}
-json& J (std::istream& rhs, uint64_t pos){
+// Jason generico: J ->  µ | number | [L] | true | false | {D} | "S"
+json J (std::istream& rhs, uint64_t pos){
     /**
      * per prima cosa gestisco il caso più esterno.
      * 
@@ -664,8 +667,7 @@ json& J (std::istream& rhs, uint64_t pos){
     
     if (pos == 0 /*non ho ancora estratto nulla*/) {
         if (rhs.eof()) {
-            json z; //se il file è vuoto, ritorno un json{null}
-            return z;
+            return j;
         }
         rhs>>c;
         if (c != '[' and c!='{' and c != '"') {
@@ -673,7 +675,7 @@ json& J (std::istream& rhs, uint64_t pos){
             j = JTERM(rhs, pos);    //già qui dentro controllo la correttezza dei caratteri iniziali
         }
         else if (c == '"') {
-            j = JSTRING(rhs, ++pos);
+            j.set_string(JSTRING(rhs, ++pos));
             if (rhs.eof()) error_handler("\"", EOF, pos);
             rhs>>c;
             pos++;
@@ -716,7 +718,7 @@ json& J (std::istream& rhs, uint64_t pos){
         }
         else if (c == '"'){
             ++pos;
-            j = JDICT(rhs,pos);
+            j.set_string(JSTRING(rhs, pos));
             rhs>>c; pos++;
             if (c != '"') error_handler("carattere di fine stringa \"", c, pos);
         }
@@ -728,191 +730,237 @@ json& J (std::istream& rhs, uint64_t pos){
     }
     return j;
 }
-// Json List: L ->     µ   |   J     |   J,L
-json& JLIST (std::istream& rhs, uint64_t pos){
+// Json List: L ->    lista di json
+json JLIST (std::istream& rhs, uint64_t pos){
     json j;
     j.set_list(); // lo rendo una lista
-    char c;
-    rhs>>c; 
-
-    //primo caso: mi trovo con ] e basta (equivale a µ).
-    if (c == ']') {
-        /* caso in cui ho la lista così: []. zero elementi. ritorno un json di tipo list ma con lista vuota*/
-        rhs.putback(c); //la ] è gestita dal chiamante di JLIST
-        return j;
-    }
-
-    //secondo caso: mi trovo con ,L . caso particolare di J,L (J è µ)
-    if (c == ','){  
-        /**caso in cui trovo una lista di n elementi, il cui primo (rispetto alla coppia che sto considerando) è null:
-         * ritorno una lista il cui primo elemento è una cella di tipo json{null}.
-        */
-        j.push_back(json{}); //prima cella: vuota
-        pos++; // consumo la ','
-        j.push_back(JLIST(rhs, pos)); // seconda cella: chiamata ricorsiva al parser delle liste
-        return j;
-    }
-
-    // terzo caso generale: mi trovo con J,L oppure J e basta.
     if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
-    if (controllo_carattere_errore_j(c)){
-        error_handler("un carattere di inizio di json, vedi commento", c, pos);
-    }
-
-    j.push_back(J(rhs, pos));   //prima cella: gestisco il J.
-    // dopo aver chiamato ricorsivamente J, mi aspetto di trovare una virgola o una chiusura lista.
-    // oppure entrambe (da gestire.).
-
+    char c;
     rhs>>c;
-    if (c == ']') {
-        /*caso di fine lista: J e basta*/
-        rhs.putback(c);
-    }
-    else if (c == ','){
-        if(rhs.eof()) 
-            error_handler("dopo la virgola non ho trovato più nulla",EOF,pos);
-        else{
-            char c2;
-            rhs>>c2; 
-            pos++; // consumo la ','
-            if (c2 == ']'){
-                /*caso di fine lista*/
-                rhs.putback(c2); // ributto dentro la ']', che viene gestita dal chiamante.
-                j.push_back(json{}); //ci butto dentro una cella vuota e sono a posto.
-                return j;
+    rhs.putback(c);
+    // arrivo a questo punto che ho lo stream sul primo carattere dopo [ ([ è l'ultimo carattere consumato)
+    while (c != ']'){
+        if (controllo_carattere_errore_j(c) and c!=',') error_handler("un carattere di inizio json", c, pos);
+        else if (c == ',') {
+            pos++; rhs>>c; // consumo la virgola
+            j.push_back(json{}); // appendo un valore vuoto
+            if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
+            //mi serve prendere il carattere successivo perché devo controllarlo nel while.
+            rhs>>c;
+            if (c != ']' and c != ',') error_handler("] o , ", c, pos);
+            if (c == ']') {
+                //l'ho preso, ma non devo consumarlo, perché se ne occupa il ciclo.
+                rhs.putback(c);
             }
-            else {
-                /*caso in cui dopo la virgola ci sia */
-                if(rhs.eof()) 
-                    error_handler("dopo la virgola mi trovo a fine file, ero in una lista e non c'è carattere ']'",EOF,pos);
-                if (controllo_carattere_errore_j(c2) and c2 != ',' /*potrei trovarmi una lista con tanti [,,,]. ovviamente valida*/) 
-                    error_handler("un carattere di inizio di json oppure una virgola", c2, pos);
-                else {
-                    //devo quindi chiamare ricorsivamente questa stessa funzione 
-                    rhs.putback(c2);
-                    j.push_back(JLIST(rhs, pos));
-                }
+            // altrimenti, è giusto che venga consumato, così allanuova iterazione rhs punta all'elemento json successivo.
+        }
+        else {
+            j.push_back(J(rhs, pos)); // appendo alla lista il prossimo elemento json.
+            // faccio i controlli come sopra.
+            if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
+            //mi serve prendere il carattere successivo perché devo controllarlo nel while.
+            rhs>>c;
+            if (c != ']' and c != ',') error_handler("] o , ", c, pos);
+            if (c == ']') {
+                //l'ho preso, ma non devo consumarlo, perché se ne occupa il ciclo.
+                rhs.putback(c);
             }
+            // altrimenti, è giusto che venga consumato, così allanuova iterazione rhs punta all'elemento json successivo.
         }
     }
-    else error_handler("']' o ',' nella lista al posto di x: ho visto Jx", c, pos);
+    //Mi trovo ora che ho appeso tutti gli elementi necessari, 
+    if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
+    //non devo consumare ] perché se ne occupa il chiamante.
     return j;
 }
-// Json DICT: "S":J   |   "S":J,D  |   µ
-json& JDICT (std::istream& rhs, uint64_t pos){
+// Json DICT: D ->    lista di DICT
+json JDICT (std::istream& rhs, uint64_t pos){
+    // è praticamente un copincolla della lista
     json j;
-    j.set_dictionary(); // lo rendo un dizionario
+    j.set_dictionary(); // lo rendo una lista
+    if (rhs.eof()) error_handler("sono in un dizionario, non posso trovarmi eof!", EOF, pos);
     char c;
-    rhs>>c; 
-
-    //primo caso: mi trovo con } e basta (equivale a µ).
-    if (c == '}') {
-        /* caso in cui ho il dict così: {}. zero elementi. ritorno un json di tipo dict ma con lista vuota*/
-        rhs.putback(c); //la } è gestita dal chiamante di JDICT
-        return j;
+    rhs>>c;
+    rhs.putback(c);
+    // arrivo a questo punto che ho lo stream sul primo carattere dopo { ({ è l'ultimo carattere consumato)
+    while (c != '}'){
+        if (controllo_carattere_errore_j(c) and c!=',' and c != ':') error_handler("un carattere di inizio json o una , o i :", c, pos);
+        else if (c == ',') {
+            pos++; rhs>>c; // consumo la virgola
+            j.insert(pair<string, json>{string{}, json{}}); // appendo un valore pair vuoto
+            if (rhs.eof()) error_handler("sono in un dizionario, non posso trovarmi eof!", EOF, pos);
+            //mi serve prendere il carattere successivo perché devo controllarlo nel while.
+            rhs>>c;
+            if (c != ']' and c != ',' and c != ':') error_handler("] o , : ", c, pos);
+            if (c == ']') {
+                //l'ho preso, ma non devo consumarlo, perché se ne occupa il ciclo.
+                rhs.putback(c);
+            }
+            // altrimenti, è giusto che venga consumato, così allanuova iterazione rhs punta all'elemento json successivo.
+        }
+        else {
+            j.insert(DICT(rhs, pos)); // appendo alla lista il prossimo elemento json.
+            // faccio i controlli come sopra.
+            if (rhs.eof()) error_handler("sono in un dizionario, non posso trovarmi eof!", EOF, pos);
+            //mi serve prendere il carattere successivo perché devo controllarlo nel while.
+            rhs>>c;
+            if (c != ']' and c != ',') error_handler("] o , ", c, pos);
+            if (c == ']') {
+                //l'ho preso, ma non devo consumarlo, perché se ne occupa il ciclo.
+                rhs.putback(c);
+            }
+            // altrimenti, è giusto che venga consumato, così allanuova iterazione rhs punta all'elemento json successivo.
+        }
     }
-
-    //secondo caso: mi trovo con ,D . caso particolare di J,D (J è µ)
-    if (c == ','){  
-        /**
-         * caso in cui trovo un DICT di n elementi, il cui primo (rispetto alla coppia che sto considerando) è null:
-         * ritorno una lista il cui primo elemento è una cella di tipo json{null}.
-        */
-        j.insert(pair<string, json>{"", json{}}); //prima cella: vuota
-        pos++; // consumo la ','
-        j.push_back(JDICT(rhs, pos)); // seconda cella: chiamata ricorsiva al parser dei dict
-        return j;
-    }
-
-    // terzo caso: generale: mi trovo con "S":J   |   "S":J,D  
-
-    pair<string, json> d {};
+    //Mi trovo ora che ho appeso tutti gli elementi necessari, 
     if (rhs.eof()) error_handler("sono in una lista, non posso trovarmi eof!", EOF, pos);
-    rhs>>c; pos++; // consumo " di apertura chiave
-    if (c != '"') error_handler("\"", c, pos);
-    rhs>>c; //controllo carattere successivo per vedere se la stringa è vuota
-    if (c == '"'){
-        pos++;
+    //non devo consumare } perché se ne occupa il chiamante.
+    return j;
+}
+// pair DICT: DICT -> µ:µ o "S":J
+pair<string, json> DICT (std::istream& rhs, uint64_t pos){
+    pair<string, json> p;
+    char c;
+    rhs>>c; rhs.putback(c);
+    if (c != ':' and c != '"') error_handler(" : o \" ", c, pos);
+    if (c == ':' ) {
+        p.first = "";  // stringa vuota
+        pos++; rhs>>c; // consumo i :
     }
     else {
-        rhs.putback(c); // rimentto al suo posto il carattere iniziale della stringa
-        json aux_per_stringa = JSTRING(rhs, pos);
-        d.first = aux_per_stringa.get_string();
-        if (rhs.eof()) error_handler("\"", EOF, pos); // devo trovarmi per forza una " (il getline in jstring usa le " come separatori)
-        rhs>>c; pos++; // consumo il " finale
+        rhs>>c; pos++; // consumo la " di apertura
+        if (rhs.eof()) error_handler("sto parsando DICT, non posso trovarmi eof!", EOF, pos);
+        p.first = JSTRING(rhs, pos);
+        if (rhs.eof()) error_handler("sto parsando DICT, non posso trovarmi eof!", EOF, pos);
+        rhs>>c; pos++; // consumo la " di chiusura
+        if (rhs.eof()) error_handler("sto parsando DICT, non posso trovarmi eof!", EOF, pos);
+        rhs>>c; pos++; // consumo i :
     }
-    if (rhs.eof()) error_handler(":", EOF, pos);
-    rhs>>c; pos++; //consumo :
-    if (c != ':')  error_handler(":", c, pos);
-    //ora controllo di non trovarmi una virgola o una parentesi }, in questo caso infatti, il valore json corrispondente alla chiave è null.
-    if (rhs.eof()) error_handler(":", EOF, pos);
-    rhs>>c; 
-    if (c == '}'){
-        rhs.putback(c); // la parentesi chiusa è gestitia dal chiamante
-        d.second = json{};
-        j.insert(d);
-        return j;
-    }    
-    else if (c == ','){
-        pos++; // consumo la ,
-        d.second = json{};
-        j.insert(d);
-        rhs>>c; // devo vedere se dopo ho una }
-        rhs.putback(c);
-        if (c == '}'){
-            j.insert(pair<string, json>{});
-            return j;
+    // arrivo qui coi : già consumati (devo ancora controllare però che siano effettivamente :)
+    if (c != ':') error_handler(": ", c, pos);
+    if (rhs.eof()) error_handler("sto parsando DICT, non posso trovarmi eof!", EOF, pos);
+    rhs>>c; rhs.putback(c); //solo per controllo
+    if (controllo_carattere_errore_j(c) and c != '}' and c != ',') error_handler("carattere di inizio J o } o ,", c, pos);
+    if (c == '}' or c == ',') {
+        p.second = json{};
+    }
+    else {
+        p.second = J(rhs, pos);
+    }
+    return p;
+}
+// JTERM: number  |   true    |   false     |   null
+json JTERM(std::istream& rhs, uint64_t pos){
+    // arrivo in JTERM con rhs che punta al primo carattere in modo corretto.
+    if (rhs.eof()) error_handler("sto parsando un terminale, non posso trovarmi eof!", EOF, pos);
+    char c;
+    rhs>>c;
+    rhs.putback(c);
+    json j;
+    if (c=='}' or c==']' or c==',') return j;
+    if (c=='n') {
+        char a[] = "null";
+        for(short i = 0; i<4; i++){
+            rhs>>c; pos++;
+            if (c != a[i]) error_handler(" la scritta null. in una posizione ", c, pos);
         }
-        //soluzione sporca, ma non saprei come stradiamine fare una insert, che richiede
-        //tipo "pair" se la ricorsione ritorna un json{dict}.
-        json da_ins = JDICT(rhs, pos);
-        for (auto ptr = da_ins.begin_dictionary(); ptr != da_ins.end_dictionary(); ptr++){
-            j.insert(*ptr);
+    }
+    else if ((c >= '0' and c <= '9') or c == '.' or c=='-' or c=='+') {
+        double a;
+        rhs>>a;
+        string s = std::to_string(a);
+        pos += s.length();
+        j.set_number(a);
+    }
+    else if (c == 'f'){
+        char a[] = "false";
+        for(short i = 0; i<5; i++){
+            rhs>>c; pos++;
+            if (c != a[i]) error_handler(" la scritta false. in una posizione ", c, pos);
         }
-        return j;
+        j.set_bool(false);
     }
-    // a sto punto, mi manca solo da gestire il caso j
-
-
-
-
-    if (c == ']') {
-        /*caso di fine lista: J e basta*/
-        rhs.putback(c);
+    else if (c == 't'){
+        char a[] = "true";
+        for(short i = 0; i<4; i++){
+            rhs>>c; pos++;
+            if (c != a[i]) error_handler(" la scritta true. in una posizione ", c, pos);
+        }
+        j.set_bool(false);
     }
-    else if (c == ','){
-        if(rhs.eof()) 
-            error_handler("dopo la virgola non ho trovato più nulla",EOF,pos);
-        else{
-            char c2;
-            rhs>>c2; 
-            pos++; // consumo la ','
-            if (c2 == ']'){
-                /*caso di fine lista*/
-                rhs.putback(c2); // ributto dentro la ']', che viene gestita dal chiamante.
-                j.push_back(json{}); //ci butto dentro una cella vuota e sono a posto.
-                return j;
-            }
-            else {
-                /*caso in cui dopo la virgola ci sia */
-                if(rhs.eof()) 
-                    error_handler("dopo la virgola mi trovo a fine file, ero in una lista e non c'è carattere ']'",EOF,pos);
-                if (controllo_carattere_errore_j(c2) and c2 != ',' /*potrei trovarmi una lista con tanti [,,,]. ovviamente valida*/) 
-                    error_handler("un carattere di inizio di json oppure una virgola", c2, pos);
+    return j;
+}
+// JSTRING: µ   |   stringa |    S\"S
+string JSTRING (std::istream& rhs, uint64_t pos){
+    //arrivo qui con la " già consumata
+    if (rhs.eof()) error_handler("stringa, sono in EOF", EOF, pos);
+    string s;
+    char c = 0;
+    while (c != '"'){
+        if (rhs.eof()) error_handler("stringa, sono in EOF", EOF, pos);
+        rhs>>c;
+        if (c == '"') rhs.putback(c);
+        else {
+            if (rhs.eof()) error_handler("stringa, sono in EOF", EOF, pos);
+            pos++;
+            s += c;
+            if (c == '\\'){
+                rhs>>c; pos++; //consumo anche il carattere " dopo
+                s += c;
+                rhs>>c; // per evitare problemi in guardia, guardo già all'iterazione successiva
+                if (c == '"') rhs.putback(c);
                 else {
-                    //devo quindi chiamare ricorsivamente questa stessa funzione 
-                    rhs.putback(c2);
-                    j.push_back(JLIST(rhs, pos));
+                    pos++;
+                    s += c;
                 }
             }
         }
+
     }
-    else error_handler("']' o ',' nella lista al posto di x: ho visto Jx", c, pos);
-    return j;
+    return s; //ho già rimesso nello stream la ".
 }
+
 std::ostream& operator<<(std::ostream& lhs, json const& rhs){
-
+    if (rhs.is_bool()) lhs<<rhs.get_bool();
+    else if (rhs.is_string()) lhs<<"\""<<rhs.get_string()<<"\"";
+    else if (rhs.is_null()) lhs<<"null";
+    else if (rhs.is_dictionary()) {
+        lhs<<"{";
+        for(auto it = rhs.begin_dictionary(); it != rhs.end_dictionary(); it++){
+            lhs<<"\""<<it->first<<"\":"<<it->second;
+        }
+        lhs<<"}";
+    }
+    else if (rhs.is_list()){
+        lhs<<"[";
+        for(auto it = rhs.begin_list(); it != rhs.end_list(); it++){
+            lhs<<*it;
+        }
+        lhs<<"]";
+    }
+    else throw json_exception {"qualcosa non va nell'ostream"};
+    return lhs;
 }
-std::istream& operator>>(std::istream& lhs, json& rhs){
 
+// operatore di input, da dove parte il tutto
+std::istream& operator>>(std::istream& lhs, json& rhs){
+    try {
+        J(lhs, 0);
+    } catch (const json_exception& e) {
+        throw e;
+    }
+    return lhs;
+}
+
+int main(){
+    json a;
+    string prova;
+    std::ifstream z ("myfile.json");
+    try{
+        z>>a;
+    } catch (const json_exception& e) {
+        cout<<"error "<<e.msg<<endl;
+        return 1;
+    }
+    return 0;
 }
