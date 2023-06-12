@@ -8,7 +8,7 @@ Lo scopo del progetto è scrivere un parser (tramite grammatiche context-free) d
 Nelle due sezioni seguenti vengono introdotti il formato json e la descrizione del container da realizzare. 
 
 
-**Nota**: se trovate imprecisioni/errori o volete un chiarimento su parti di questo documento o di json.hpp, aprite una GitHub issue (pulsante "issues" in alto) citando la linea del file in questione. Per citare una particolare linea di README.md, aprite il file (cliccando su README.md in alto), rendete visibili le linee (pulsante `<>` "display the source blob"), selezionate i numeri di linea interessati -> cliccate i tre puntini -> "copy permalink". A questo punto, potete incollare il link copiato nella issue. Analogo per json.hpp (in questo caso i numeri di linea sono immediatamente visibili).
+**Nota**: se trovate imprecisioni/errori o volete un chiarimento su parti di questo documento o di json.hpp, aprite una GitHub issue (pulsante "issues" in alto) citando la linea del file in questione (se il commento riguarda una linea particolare del codice o di questo README). Per citare una particolare linea di README.md, aprite il file (cliccando su README.md in alto), rendete visibili le linee (pulsante `<>` "display the source blob"), selezionate i numeri di linea interessati -> cliccate i tre puntini -> "copy permalink". A questo punto, potete incollare il link copiato nella issue. Analogo per json.hpp (in questo caso i numeri di linea sono immediatamente visibili).
 
 ## 1. Formato json
 
@@ -50,7 +50,7 @@ Per esempio, considerate il seguente file json:
         "una stringa con \n virgolette \"escaped\"",
         "seconda stringa senza escape",
         "terza stringa con altri\" escape",
-        "doppio \\" escape",
+        "doppio \\" escape"
     ]
 
 Nell’esempio sopra, le quattro stringhe da estrarre dal file (ossia, i caratteri da inserire nelle `std::string` che andrete a costruire) sono, rispettivamente: 
@@ -210,13 +210,17 @@ Questo metodo restituisce true se e solo se l’oggetto è null.
     json const& json::operator[](std::string const& key) const;
     json& json::operator[](std::string const& key);
 
-Se l’oggetto è un dizionario (`is_dictionary()` restituisce `true`), questo metodo restituisce una reference all’elemento `json` associato alla chiave key (ricordate che un dizionario è un insieme di coppie chiave-valore in cui le chiavi sono di tipo `std::string` e i valori sono di tipo `json`).
+Se l’oggetto è un dizionario (`is_dictionary()` restituisce `true`), questo metodo restituisce una reference all’elemento `json` associato alla chiave `key` (ricordate che un dizionario è un insieme di coppie chiave-valore in cui le chiavi sono di tipo `std::string` e i valori sono di tipo `json`).
 
 **Nota.** Non è un problema se questo metodo scorre tutto il contenuto del dizionario (per esempio, se avete implementato il dizionario tramite una lista). Non ci aspettiamo che questo metodo sia particolarmente efficiente (a differenza del metodo `json::insert`, vedi sotto).
 
-Se il dizionario non contiene nessuna coppia chiave-valore la cui chiave è uguale a key, questo metodo deve inserire nel dizionario una nuova coppia chiave-valore la cui chiave è key e il cui valore è un `json` costruito con il costruttore di default (ossia, un `json` di tipo null). Infine, il metodo restituisce una reference a questo nuovo `json` appena costruito.
+Se il dizionario non contiene nessuna coppia chiave-valore la cui chiave è uguale a `key`, allora:
 
-Se l’oggetto non è un dizionario, lanciamo un’eccezione `json_exception` (con messaggio `msg` a piacere).
+- il metodo `operator[]` deve inserire nel dizionario una nuova coppia chiave-valore la cui chiave è `key` e il cui valore è un `json` costruito con il costruttore di default (i.e., un `json` il cui contenuto è `null`), ed infine restituire una reference a questo nuovo `json` appena costruito;
+- il metodo `operator[] const` deve lanciare invece un'eccezione non potendo effettuare nessun inserimento.
+
+In ogni caso, se l’oggetto non è un dizionario, lanciamo un’eccezione `json_exception` (con messaggio `msg` a piacere)
+se il metodo `operator[]` viene invocato.
 
 ---
  
@@ -245,7 +249,7 @@ In modo analogo, se l’oggetto è un dizionario (`is_dictionary()` restituisce 
   
 ---
 
-Se `is_number()` è `true` (l’oggetto è un numero), i metodi qui sotto restituiscono una reference / const reference alla variabile `double` contenuta nel `json` (e che potete salvare in `json::impl`). Se `is_number()` è `false`, questo metodo devono lanciare un’eccezione `json_exception` (con messaggio `msg` a piacere). 
+Se `is_number()` è `true` (l’oggetto è un numero), i metodi qui sotto restituiscono una reference / const reference alla variabile `double` contenuta nel `json` (e che potete salvare in `json::impl`). Se `is_number()` è `false`, questo metodo deve lanciare un’eccezione `json_exception` (con messaggio `msg` a piacere). 
 
     double& json::get_number();
     double const& json::get_number() const;
@@ -269,19 +273,19 @@ Se `is_string()` è `true` (l’oggetto è una stringa), questi metodi restituis
  
 #### Metodi per settare il contenuto del json
 
-Questo metodo rende il json di tipo stringa, rendendo la sua stringa memorizzata internamente uguale a x e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare la stringa x). Dopo la chiamata di questa funzione, `is_string()` deve restituire `true` (nessun altro metodo booleano deve restituire `true`).
+Questo metodo rende il json di tipo stringa, rendendo la sua stringa memorizzata internamente uguale a `x` e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare la stringa `x`). Dopo la chiamata di questa funzione, `is_string()` deve restituire `true` (nessun altro metodo booleano deve restituire `true`).
 
     void json::set_string(std::string const& x);
 
 --- 
 
-Questo metodo rende il json di tipo bool, rendendo il bool memorizzato internamente uguale a x e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare il booleano x). Dopo la chiamata di questa funzione, `is_bool()` deve restituire `true` (nessun altro metodo booleano deve restituire `true`).
+Questo metodo rende il json di tipo bool, rendendo il bool memorizzato internamente uguale a `x` e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare il booleano `x`). Dopo la chiamata di questa funzione, `is_bool()` deve restituire `true` (nessun altro metodo booleano deve restituire `true`).
 
     void json::set_bool(bool x);
 
 ---
 
-Questo metodo rende il json di tipo numero, rendendo il double memorizzato internamente uguale a x e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare il double x). Dopo la chiamata di questa funzione, `is_number()` deve restituire true (nessun altro metodo booleano deve restituire `true`).
+Questo metodo rende il json di tipo numero, rendendo il double memorizzato internamente uguale a `x` e cancellando gli eventuali dati precedentemente memorizzati nel json (per esempio, se il json era di tipo lista, questa funzione deve svuotare la lista e poi memorizzare il double `x`). Dopo la chiamata di questa funzione, `is_number()` deve restituire true (nessun altro metodo booleano deve restituire `true`).
 
     void json::set_number(double x);
 
@@ -306,7 +310,7 @@ Questo metodo rende il json di tipo dizionario, rendendo il dizionario interno u
 
 ---
 
-Se il `json` è di tipo lista (`is_list()` restituisce true), questo metodo aggiunge x in testa alla lista. 
+Se il `json` è di tipo lista (`is_list()` restituisce true), questo metodo aggiunge `x` in testa alla lista. 
 
 **Importante:** per motivi di efficienza, il metodo non deve scorrere tutta la lista! implementate il metodo come visto a lezione. 
 
@@ -316,7 +320,7 @@ Se il `json` non è di tipo lista, questa funzione deve lanciare un’eccezione 
 
 ---
 
-Se il `json` è di tipo lista (`is_list()` restituisce `true`), questo metodo aggiunge x in fondo alla lista. 
+Se il `json` è di tipo lista (`is_list()` restituisce `true`), questo metodo aggiunge `x` in fondo alla lista. 
 
 **Importante:** per motivi di efficienza, il metodo non deve scorrere tutta la lista! implementate il metodo come visto a lezione. 
 
@@ -326,7 +330,7 @@ Se il `json` non è di tipo lista, questa funzione deve lanciare un’eccezione 
 
 ---
 
-Se il `json` è di tipo dizionario (`is_dictionary()` restituisce `true`), questo metodo aggiunge la coppia chiave-valore x nel dizionario. Il metodo non deve verificare se esiste già una coppia nel dizionario la cui chiave è `x.first` (potete assumere che questo non avvenga mai nei test che eseguiremo noi). 
+Se il `json` è di tipo dizionario (`is_dictionary()` restituisce `true`), questo metodo aggiunge la coppia chiave-valore `x` nel dizionario. Il metodo non deve verificare se esiste già una coppia nel dizionario la cui chiave è `x.first` (potete assumere che questo non avvenga mai nei test che eseguiremo noi). 
 
 **Importante:** per motivi di efficienza, il metodo non deve scorrere il contenuto di tutto il dizionario! 
 
@@ -347,7 +351,7 @@ Questo metodo scrive l’oggetto `rhs` sull’output stream `lhs` in formato jso
 
     std::istream& operator>>(std::istream& lhs, json& rhs);
 
-Questo metodo legge da `lhs` un oggetto `json` e lo salva in `rhs` (sovrascrivendone il contenuto). Questa è la funzione che lancia il parser json realizzato: l’input stream è uno stream di caratteri che contiene un documento in formato json (come descritto all’inizio). L’operatore `>>` deve estrarre i dati dallo stream (usando il parser) e costruire l’oggetto json che contiene quei dati (cancellando il contenuto precedente di `rhs`, se questi sono presenti).
+Questo metodo legge da `lhs` un oggetto `json` e lo salva in `rhs` (sovrascrivendone il contenuto). Questa è la funzione che lancia il parser json realizzato: l’input stream è uno stream di caratteri che contiene un documento in formato json (come descritto all’inizio). L’operatore `>>` deve estrarre i dati dallo stream (usando il parser) e costruire l’oggetto `json` che contiene quei dati (cancellando il contenuto precedente di `rhs`, se questi sono presenti).
 
 Se la funzione riscontra dei problemi durante il parsing, deve venire lanciata un’eccezione `json_exception` (con messaggio `msg` a piacere). Cercate di rilevare il numero più elevato possibile di errori di parsing (testeremo il vostro codice anche su file json in formato errato, verificando che venga lanciata l’eccezione).
 
@@ -415,14 +419,24 @@ La variabile `j` deve contenere i seguenti dati:
         3
     ]
 
+## 4. Come testare il vostro codice?
  
-## 4. Consegna del progetto
+Ricordate la regola generale: la scrittura del codice è solo metà del lavoro! La metà rimanente consiste nel progettare dei test approfonditi per rilevare eventuali bug. In fase di valutazione, il nostro compito sarà quello di mettere sotto stress il vostro codice (testandolo sui file più disparati, sia in formato json valido che non, e combinando operatori in tutti i modi possibili), quindi progettate degli ottimi test e ricordatevi di compilare il codice con gli strumenti di debug mostrati a lezione (assert, compiler sanitizers). Ricordatevi anche di usare Valgrind.
+ 
+Detto questo, consigliamo di crearvi un file test.cpp in cui definirete una funzione `main` che testa l'oggetto `json` da voi scritto. Questo file test.cpp **non** deve essere consegnato (dovrete consegnare solo json.cpp, leggi sotto): serve solo a voi per testare il vostro codice. Testate ogni metodo di `json` in maniera isolata, su molti test case. Verificate che non ci siano memory leaks. L'output di Valgrind deve sempre terminare con:
+
+	ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+	
+Ogni errore di memoria che troveremo verrà penalizzato. 
+ 
+
+## 5. Consegna del progetto
 
 Noi vi forniamo un file json.hpp (in questo repository GitHub) che contiene le dichiarazioni della classe e gli unici `#include` ammessi. 
 
 **Nota.** Il file json.hpp **non** deve essere modificato in alcun modo. Noi, infatti, compileremo e testeremo il vostro codice con il file json.hpp fornito da noi (e non con quello che voi potreste aver modificato).
 
-Il vostro compito sarà quello di implementare il file json.cpp, contenente l’implementazione di tutti i metodi descritti sopra. Note importanti: 
+Il vostro compito sarà quello di implementare il file json.cpp, contenente la definizione di tutti i metodi/tipi descritti sopra. Note importanti: 
 
 1. json.cpp può solo includere json.hpp. Non può contenere nessun altro #include e nessuna macro (in generale, nessun codice preceduto da #, eccetto `#include json.hpp`). Tutti gli include e macro verranno automaticamente rimossi prima di compilare il vostro codice. Gli unici `#include` ammessi sono quelli presenti nel file json.hpp fornito da noi.
 2. json.cpp **non** deve definire la funzione `main`: saremo noi a scriverla per testare il vostro codice. Se definite la funzione `main`, il codice non compilerà.
@@ -456,9 +470,11 @@ Il modulo moodle per la consegna verrà aperto a breve e potrete cominciare a co
 
   
 
-## 5. Valutazione del progetto
+## 6. Valutazione del progetto
 
-Ogni metodo da voi scritto verrà testato da noi in modo accurato, su molti input diversi (file json). Ricordate la regola generale: la scrittura del codice è solo metà del lavoro! La metà rimanente consiste nel progettare dei test approfonditi per rilevare eventuali bug. In fase di valutazione, il nostro compito sarà quello di mettere sotto stress il vostro codice (testandolo sui file più disparati e combinando operatori in tutti i modi possibili), quindi progettate degli ottimi test e ricordatevi di compilare il codice con gli strumenti di debug mostrati a lezione (assert, compiler sanitizers). Ricordatevi anche di usare Valgrind.
+Ogni metodo da voi scritto verrà testato da noi in modo accurato, su molti input diversi (file json sia in formato valido che non). 
+
+Compileremo il vostro codice con lo standard C++ 17 (compiler flag `-std=c++17`).
 
 Un metodo che porta all’interruzione inaspettata del codice (esempio, segmentation fault) viene valutato 0 punti. Un metodo non implementato viene valutato 0 punti. Alcuni metodi, come quelli su iteratori, sono molto importanti perché ci permettono di testare il vostro codice (accedendo al contenuto del container): fate attenzione ad implementarli correttamente, altrimenti non avremo modo di testare il vostro codice. 
 

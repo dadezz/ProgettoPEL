@@ -1,5 +1,6 @@
 #include "json.hpp"
 #include <fstream>
+#include <sstream>
 
 using std::cout;
 using std::cin;
@@ -328,8 +329,8 @@ void json::insert(pair<string,json> const& x){
         else {
             impl::Dict nuova = new impl::Dizionario;
             nuova->info = x;
-            nuova->next = pimpl->dict_head;
-            pimpl->dict_head = nuova;
+            nuova->next = nullptr;
+            pimpl->dict_tail = pimpl->dict_tail->next = nuova;
         }
     }
     else throw json_exception {"stai facendo una insert in un json di tipo non dict"};
@@ -836,7 +837,7 @@ string JSTRING (std::istream& rhs){
 }
 
 std::ostream& operator<<(std::ostream& lhs, json const& rhs){
-    if (rhs.is_bool()) lhs<<rhs.get_bool();
+    if (rhs.is_bool()) lhs<<std::boolalpha<<rhs.get_bool();
     else if (rhs.is_string()) lhs<<"\""<<rhs.get_string()<<"\"";
     else if (rhs.is_null()) lhs<<"null";
     else if (rhs.is_number()) lhs<<rhs.get_number();
@@ -864,12 +865,23 @@ std::ostream& operator<<(std::ostream& lhs, json const& rhs){
 
 // operatore di input, da dove parte il tutto
 std::istream& operator>>(std::istream& lhs, json& rhs){
+    string string_without_spaces;
+    do {
+        string aux;
+        lhs>>aux;
+        string_without_spaces += aux;
+    } while(!lhs.eof());
+    std::istringstream iss(string_without_spaces);
+
     try {
-        rhs = J(lhs);
+        rhs = J(iss);
     } catch (const json_exception& e) {
         throw e;
     }
-    if (lhs.peek() != -1) cout<<"errore: una parte del file è un json corretto, ma il file in sé non lo è, percHé contiene alti caratteri"<<endl;
+    if (iss.peek() != -1) {
+        cout<<"errore: una parte del file è un json corretto, ma il file in sé non lo è, percHé contiene alti caratteri"<<endl;
+        exit(EXIT_FAILURE);
+    }
     return lhs;
 }
 
@@ -892,3 +904,4 @@ int main() {
 
     return 0;
 }
+
