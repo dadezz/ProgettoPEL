@@ -55,6 +55,7 @@ json::json(json const& rhs){
 // copy assignment
 json& json::operator=(json const& rhs){
     if (this != &rhs){
+        if (pimpl == nullptr) pimpl = new json::impl;
         pimpl->delete_everything();
         pimpl->copy(rhs);
     }
@@ -62,12 +63,14 @@ json& json::operator=(json const& rhs){
 }
 // riporta un qualsiasi json a tipo "null". ma non dealloca pimpl
 void json::impl::delete_everything(){
-    Tipo = nullo;
-    numero = 0;
-    stringa = "";
-    condizione = false;
-    cancella_list();
-    cancella_dict();
+    if (this != nullptr) {   
+        Tipo = nullo;
+        numero = 0;
+        stringa = "";
+        condizione = false;
+        cancella_list();
+        cancella_dict();
+    }
 
 }
 // dealloca la lista e setta a nullptr i puntatori
@@ -365,8 +368,9 @@ json& json::operator[](std::string const& key){
         }
         if (found) return aux->info.second;
         else {
-            insert(pair<string, json> {key, json{}}); // lo inserisce in testa
-            return pimpl->dict_head->info.second;
+            json aux;
+            insert(pair<string, json> {key, aux}); // lo inserisce in testa
+            return pimpl->dict_tail->info.second;
         }
     }
     else throw json_exception {"l'operator [] funziona solo su json di tipo dict"};
@@ -644,6 +648,12 @@ json J (std::istream& rhs){
 
     c = rhs.peek();
     if (c == -1) error_handler("un carattere qualsiasi", EOF);
+    if (c == ' ' or c == '\n' or c == '\t'){
+        do {
+            rhs>>c; // consumes delimiter
+            c = rhs.peek();
+        } while(c == ' ' or c == '\n' or c == '\t');
+    }
 
     rhs>>c;
     
@@ -653,6 +663,13 @@ json J (std::istream& rhs){
     if (c == '[') {
         //già consumato [
         j = JLIST(rhs); //input di lista
+        c = rhs.peek();
+        if (c == ' ' or c == '\n' or c == '\t'){
+            do {
+                rhs>>c; // consumes delimiter
+                c = rhs.peek();
+            } while(c == ' ' or c == '\n' or c == '\t');
+        }
         rhs>>c; //consumo ]
         if (c != ']') error_handler("carattere di fine lista ] ", c);
     }
@@ -685,6 +702,13 @@ json JLIST (std::istream& rhs){
     
     char c = rhs.peek();
     if (c == -1) error_handler("sono in una lista, non posso trovarmi eof!", EOF);
+
+    if (c == ' ' or c == '\n' or c == '\t'){
+        do {
+            rhs>>c; // consumes delimiter
+            c = rhs.peek();
+        } while(c == ' ' or c == '\n' or c == '\t');
+    }
 
     // arrivo a questo punto che ho lo stream sul primo carattere dopo [ ([ è l'ultimo carattere consumato)
     while (c != ']'){       
@@ -817,16 +841,18 @@ string JSTRING (std::istream& rhs){
     string s;
 
     while (c != '"'){
-        rhs>>c; //prendo un carattere senza leggerlo.
+        c = rhs.get(); //prendo un carattere senza leggerlo.
 
         if (c == '"') rhs.putback(c); // se trovo una virgoletta di chiusura devo rimetterla in rhs e uscire dal ciclo
         else {
             if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
             
-            s += c; //lo metto nella stringa.
+            if (c !='\\') s += c; //lo metto nella stringa.
 
-            if (c == '\\'){ //se mi becco davanti un carattere di escape, devo controllare se ho una virgoletta (perché non si chiuda la str)
-                rhs>>c; //consumo anche il carattere seguente 
+            else { //se mi becco davanti un carattere di escape, devo controllare se ho una virgoletta (perché non si chiuda la str)
+                if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
+                c = rhs.get(); //consumo anche il carattere seguente 
+                if (c != '"') s += '\\'; 
                 s += c;
                 c = rhs.peek(); // per evitare problemi in guardia, guardo già all'iterazione successiva
             }
@@ -854,8 +880,8 @@ std::ostream& operator<<(std::ostream& lhs, json const& rhs){
         lhs<<"[";
         for(auto it = rhs.begin_list(); it != rhs.end_list(); ){
             auto aux = it++;
-            if (it == rhs.end_list()) cout<<*aux; 
-            else cout<<*aux<<",";
+            if (it == rhs.end_list()) lhs<<*aux; 
+            else lhs<<*aux<<",";
         }
         lhs<<"]";
     }
@@ -863,14 +889,66 @@ std::ostream& operator<<(std::ostream& lhs, json const& rhs){
     return lhs;
 }
 
+string string_aux (std::istream& rhs){
+    // è  uguale a jstring, cambia però la gestione dei \
+
+    char c = rhs.peek();
+    if (c == -1) error_handler("stringa, sono in EOF", EOF);
+    string s;
+    while (c != '"'){
+        c = rhs.get(); //prendo un carattere senza leggerlo.
+        if (c == '"') rhs.putback(c); // se trovo una virgoletta di chiusura devo rimetterla in rhs e uscire dal ciclo
+        else {
+            if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
+            s += c; //lo metto nella stringa.
+            if (c == '\\'){ //se mi becco davanti un carattere di escape, devo controllare se ho una virgoletta (perché non si chiuda la str)
+                if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
+                c = rhs.get(); //consumo anche il carattere seguente 
+                s += c;
+                c = rhs.peek(); // per evitare problemi in guardia, guardo già all'iterazione successiva
+            }
+        }
+    }
+    return s; //ho già rimesso nello stream la ".
+}
+
 // operatore di input, da dove parte il tutto
 std::istream& operator>>(std::istream& lhs, json& rhs){
     string string_without_spaces;
-    do {
-        string aux;
-        lhs>>aux;
-        string_without_spaces += aux;
-    } while(!lhs.eof());
+
+    while (!lhs.eof()) {
+        //prendo tutto quello che mi si pone davanti, fino alla prima "
+        string aux1;
+        //cout<<(char)lhs.peek()<<"     ";
+        std::getline(lhs, aux1, '"');
+        /*
+        cout<<(char)lhs.peek()<<endl;
+        cout<<aux1.length()<<endl;
+        */
+        
+        //a questo che ho estratto, tolgo tutti gli spazi
+        if (aux1.length() != 0) {
+            std::istringstream aux_stream(aux1);
+            while(!aux_stream.eof()) {
+                //cout<<(char)lhs.peek()<<"     "<<(char)aux_stream.peek()<<endl;
+                string aux;
+                aux_stream>>aux;
+                string_without_spaces += aux;
+            } 
+        }  
+
+        //ora parso la stringa
+        char c = lhs.peek();
+        if (c != -1){
+            string_without_spaces += '"';
+            string_without_spaces += string_aux(lhs);
+            string_without_spaces += '"';
+            lhs>>c; lhs.peek(); //consumo le virgolette di chiusura
+        }
+
+    }; // e ripeto il tutto fino a fine stream
+
+    //ora uso lo stream senza spazi invece del file
     std::istringstream iss(string_without_spaces);
 
     try {
@@ -892,11 +970,57 @@ int main() {
         return 1;
     }
 
+    json j;
     try {
-        json j;
         file >> j;
 
         std::cout<< "JSON letto:\n" << j << std::endl;
+    } catch (const json_exception& e) {
+        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
+        return 1;
+    }
+
+    std::cout<<endl<<"testcases:"<<endl;
+
+    try {
+    json& y = *(++j.begin_list());
+    std::cout << y["quarta chiave"]["a"]<<endl;
+
+    json z;
+    z.set_dictionary();
+    cout<<z<<endl;
+    json aux;
+    aux.set_number(5);
+    cout<<aux<<endl;
+    cout<<z<<endl;
+    aux.set_number(6);
+    cout<<aux<<endl;
+   
+
+    // aux è una variabile di tipo json (in questo caso specifico, un numero)
+
+    pair<string,json> p;
+    p.first = string{"d"}; 
+    p.second = aux;
+    z.insert(p);
+
+
+    cout<<z<<endl;
+
+    (*(++j.begin_list()))["prima chiave"] = z;
+
+    cout<<j<<endl;
+    } catch (const json_exception& e) {
+        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
+        return 1;
+    }
+
+    try {
+
+    std::ifstream file("json2.json");
+        file >> j;
+        std::ofstream fileoo("json2_letto.json");
+        fileoo<<j;
     } catch (const json_exception& e) {
         std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
         return 1;
