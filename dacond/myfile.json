@@ -1,0 +1,11 @@
+
+[
+    1,
+    {
+        "prima chiave" : 5,
+        "\"\"\\\"seco\nda chiave" : [4.12,2,true],
+        "terza chiave" : "una stringa",
+        "quarta chiave" : {"a" : 4, "b" : [4,5]}
+    },
+    3
+] 

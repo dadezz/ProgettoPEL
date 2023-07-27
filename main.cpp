@@ -40,6 +40,8 @@ int main() {
     p.second = aux;
     z.insert(p);
 
+    z.insert({"ciao", json{}});
+
 
     cout<<z<<endl;
 
@@ -53,9 +55,9 @@ int main() {
 
     try {
 
-    std::ifstream file("json2.json");
+    std::ifstream file("large-file.json");
         file >> j;
-        std::ofstream fileoo("json2_letto.json");
+        std::ofstream fileoo("large-file_letto.json");
         fileoo<<j;
     } catch (const json_exception& e) {
         std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
