@@ -55,7 +55,6 @@ json::json(json const& rhs){
 // copy assignment
 json& json::operator=(json const& rhs){
     if (this != &rhs){
-        if (pimpl == nullptr) pimpl = new json::impl;
         pimpl->delete_everything();
         pimpl->copy(rhs);
     }
@@ -453,35 +452,59 @@ json::dictionary_iterator::dictionary_iterator(impl::Dict p) : it_ptr(p) {}
 json::const_dictionary_iterator::const_dictionary_iterator(impl::Dict p) : it_ptr(p) {}
 //operatore di dereferenziazione list_iterator
 json& json::list_iterator::operator*() const{
-    return it_ptr->info;
+    if (it_ptr != nullptr) return it_ptr->info;   
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    } 
 }
 //operatore di dereferenziazione const_list_iterator
 json& json::const_list_iterator::operator*() const{
-    return it_ptr->info;    
+    if (it_ptr != nullptr) return it_ptr->info;   
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    } 
 }
 //operatore di dereferenziazione dictionary_iterator
 pair<string, json>& json::dictionary_iterator::operator*() const{
-    return it_ptr->info;    
+    if (it_ptr != nullptr) return it_ptr->info;   
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }    
 }
 //operatore di dereferenziazione const_dictionary_iterator 
 pair<string, json>& json::const_dictionary_iterator::operator*() const{
-    return it_ptr->info;    
+    if (it_ptr != nullptr) return it_ptr->info;   
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }   
 }
 //operatore-> const_list_iterator
 json* json::list_iterator::operator->() const{
-    return &(it_ptr->info);
+    if (it_ptr != nullptr) return &(it_ptr->info);
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }   
 }
 //operatore-> const_list_iterator
 json* json::const_list_iterator::operator->() const{
-    return &(it_ptr->info);    
+    if (it_ptr != nullptr) return &(it_ptr->info);
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }       
 }
 //operatore-> dictionary_iterator
 pair<string, json>* json::dictionary_iterator::operator->() const{
-    return &(it_ptr->info);    
+    if (it_ptr != nullptr) return &(it_ptr->info);
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }   
 }
 //operatore-> const_dictionary_iterator 
 pair<string, json>* json::const_dictionary_iterator::operator->() const{
-    return &(it_ptr->info);    
+    if (it_ptr != nullptr) return &(it_ptr->info);
+    else {
+        throw json_exception{"iteratore su nullptr"};
+    }       
 }
 // prefix increment per list_iterator
 json::list_iterator& json::list_iterator::operator++(){
@@ -577,10 +600,12 @@ json::const_dictionary_iterator::operator bool() const{
 }
 // iteratore begin() su list_iterator
 json::list_iterator json::begin_list(){
+    if (!is_list()) throw json_exception{"iteratore su json di tipo errato"};
     return list_iterator {json::pimpl->list_head};
 }
 // iteratore begin() su const_list_iterator
 json::const_list_iterator json::begin_list() const{
+    if (!is_list()) throw json_exception{"iteratore su json di tipo errato"};
     return const_list_iterator {json::pimpl->list_head};
 }
 // iteratore end() su list_iterator
@@ -594,11 +619,13 @@ json::const_list_iterator json::end_list() const{
 }
 // iteratore begin() su dict_iterator
 json::dictionary_iterator json::begin_dictionary(){
+    if (!is_dictionary()) throw json_exception{"iteratore su json di tipo errato"};
     return dictionary_iterator{json::pimpl->dict_head};
 
 }
 // iteratore begin() su onst_dict_iterator
 json::const_dictionary_iterator json::begin_dictionary() const{
+    if (!is_dictionary()) throw json_exception{"iteratore su json di tipo errato"};
     return const_dictionary_iterator{json::pimpl->dict_head};
 }
 // iteratore end() su dict_iterator
@@ -890,7 +917,7 @@ std::ostream& operator<<(std::ostream& lhs, json const& rhs){
 }
 
 string string_aux (std::istream& rhs){
-    // è  uguale a jstring, cambia però la gestione dei \
+    // è  uguale a jstring, cambia però la gestione dei "\"
 
     char c = rhs.peek();
     if (c == -1) error_handler("stringa, sono in EOF", EOF);
@@ -962,70 +989,3 @@ std::istream& operator>>(std::istream& lhs, json& rhs){
     }
     return lhs;
 }
-
-int main() {
-    std::ifstream file("myfile.json");
-    if (!file) {
-        std::cerr << "Errore nell'apertura del file." << std::endl;
-        return 1;
-    }
-
-    json j;
-    try {
-        file >> j;
-
-        std::cout<< "JSON letto:\n" << j << std::endl;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    std::cout<<endl<<"testcases:"<<endl;
-
-    try {
-    json& y = *(++j.begin_list());
-    std::cout << y["quarta chiave"]["a"]<<endl;
-
-    json z;
-    z.set_dictionary();
-    cout<<z<<endl;
-    json aux;
-    aux.set_number(5);
-    cout<<aux<<endl;
-    cout<<z<<endl;
-    aux.set_number(6);
-    cout<<aux<<endl;
-   
-
-    // aux è una variabile di tipo json (in questo caso specifico, un numero)
-
-    pair<string,json> p;
-    p.first = string{"d"}; 
-    p.second = aux;
-    z.insert(p);
-
-
-    cout<<z<<endl;
-
-    (*(++j.begin_list()))["prima chiave"] = z;
-
-    cout<<j<<endl;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    try {
-
-    std::ifstream file("json2.json");
-        file >> j;
-        std::ofstream fileoo("json2_letto.json");
-        fileoo<<j;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    return 0;
-}
-
