@@ -10,6 +10,35 @@ using std::pair;
 using std::endl;
 
 struct json::impl {
+
+    impl(){
+        Tipo = nullo;
+        numero = 0;
+        condizione = false;
+        stringa = "";
+        list_head = list_tail = nullptr;
+        dict_head = dict_tail = nullptr;
+    }
+
+    ~impl() {
+        delete_everything();
+    }
+
+    impl(const impl &rhs){
+        delete_everything();
+        copy(rhs);
+    }
+
+    impl& operator=(const impl &rhs) {
+        if (this != &rhs) {
+            delete_everything();
+            copy(rhs);
+        }
+        return *this;
+    }
+
+
+
     enum tipologia {nullo, num, str, cond, lis, diz};
     tipologia Tipo;
     double numero;
@@ -32,7 +61,7 @@ struct json::impl {
     Dict dict_head, dict_tail;
 
     void delete_everything();   // riporta un qualsiasi json a tipo "null". ma non dealloca pimpl
-    void copy(json const & rhs);   // su un json di tipo null, copia (deep) lo stato di rhs su this
+    void copy(impl const & rhs);   // su un json di tipo null, copia (deep) lo stato di rhs su this
     void cancella_list();  // dealloca la lista e setta a nullptr i puntatori
     void cancella_dict();  // dealloca la lista e setta a nullptr i puntatori
     void copia_list(List const & rhs);// copio una lista da un oggetto a this (vuoto)
@@ -42,36 +71,26 @@ struct json::impl {
 // default constructor = sets json obj to "null" type
 json::json(){
     pimpl = new impl;
-    pimpl->Tipo = pimpl->nullo;
-    pimpl->numero = 0;
-    pimpl->stringa = "";
-    pimpl->condizione = false;
-    pimpl->list_head = pimpl->list_tail = nullptr;
-    pimpl->dict_head = pimpl->dict_tail = nullptr;
 }
 // copy constructor
 json::json(json const& rhs){
-    *this = rhs;
+    if (this != &rhs){
+        this->pimpl = new impl(*(rhs.pimpl));
+    }
 }
 // copy assignment
 json& json::operator=(json const& rhs){
-    if (this != &rhs){
-        pimpl->delete_everything();
-        pimpl->copy(rhs);
-    }
+    *(this->pimpl) = *(rhs.pimpl);
     return *this;
 }
 // riporta un qualsiasi json a tipo "null". ma non dealloca pimpl
-void json::impl::delete_everything(){
-    if (this != nullptr) {   
+void json::impl::delete_everything(){   
         Tipo = nullo;
         numero = 0;
         stringa = "";
         condizione = false;
         cancella_list();
         cancella_dict();
-    }
-
 }
 // dealloca la lista e setta a nullptr i puntatori
 void json::impl::cancella_list(){
@@ -93,25 +112,22 @@ void json::impl::cancella_dict(){
 }
 // distruttore
 json::~json(){
-    if (pimpl){
-        pimpl->delete_everything(); // svuoto il contenuto di pimpl
-        delete pimpl;   // dealloco pimpl
-    }
+    if (pimpl) delete pimpl;   // dealloco pimpl
 }
 // su un json di tipo null, copia (deep) lo stato di rhs su this
-void json::impl::copy(json const & rhs){
+void json::impl::copy(impl const & rhs){
     //il json non ha liste, è già vuoto
     if (this->Tipo != nullo)
         throw json_exception {"la funzione copy va chiamata su oggetto di tipo null."};
-    Tipo = rhs.pimpl->Tipo;
-    stringa = rhs.pimpl->stringa;
-    condizione = rhs.pimpl->condizione;
-    numero = rhs.pimpl->numero;
+    Tipo = rhs.Tipo;
+    stringa = rhs.stringa;
+    condizione = rhs.condizione;
+    numero = rhs.numero;
     if (list_head != nullptr || list_tail != nullptr || dict_head != nullptr || dict_tail !=nullptr){
         throw json_exception {"la lista dovrebbe essere vuota, sto facendo una copia di oggetto json, ma *this non è null"};
     }
-    copia_list(rhs.pimpl->list_head);
-    copia_dict(rhs.pimpl->dict_head);
+    copia_list(rhs.list_head);
+    copia_dict(rhs.dict_head);
 }
 // copio una lista da un oggetto a this (vuoto)
 void json::impl::copia_list(List const & rhs){
@@ -155,20 +171,31 @@ void json::impl::copia_dict(Dict const & rhs){
     }
 }
 // move semantic: move assignment
-json& json::operator=(json&& rhs){
+json& json::operator=(json&& rhs) {
+    /*if (&rhs != this){
+        pimpl = std::move(rhs.pimpl);
+        delete rhs.pimpl;
+        rhs.pimpl = nullptr;
+    }
+    return *this;*/
+    json::impl* aux = this->pimpl;
     if (this != &rhs) {
-        pimpl->delete_everything();
-        delete pimpl; // Dealloca il pimpl corrente prima di sovrascriverlo
-        pimpl = rhs.pimpl;
-        rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
+        this->pimpl = rhs.pimpl;
+        rhs.pimpl = aux; // quando chiamo il distruttore non intacco il pimpl che ho spostato
     }
     return *this;
-}
+};
 // move semantics: move constructor
-json::json(json&& rhs){
-    pimpl = rhs.pimpl;
-    rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
-}
+json::json(json&& rhs) {
+    /*if (&rhs != this){
+        this->pimpl = std::move(rhs.pimpl);
+        delete rhs.pimpl;
+        rhs.pimpl = nullptr;
+    }*/
+    this->pimpl = new impl;
+    *this = std::move(rhs); 
+    
+};
 // return true if this is json(list)
 bool json::is_list() const {
     return pimpl->Tipo == impl::lis;
