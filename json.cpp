@@ -1,6 +1,7 @@
 #include "json.hpp"
-#include <fstream>
 #include <sstream>
+#include <fstream>
+
 
 using std::cout;
 using std::cin;
@@ -92,8 +93,10 @@ void json::impl::cancella_dict(){
 }
 // distruttore
 json::~json(){
-    pimpl->delete_everything(); // svuoto il contenuto di pimpl
-    delete pimpl;   // dealloco pimpl
+    if (pimpl){
+        pimpl->delete_everything(); // svuoto il contenuto di pimpl
+        delete pimpl;   // dealloco pimpl
+    }
 }
 // su un json di tipo null, copia (deep) lo stato di rhs su this
 void json::impl::copy(json const & rhs){
@@ -153,16 +156,18 @@ void json::impl::copia_dict(Dict const & rhs){
 }
 // move semantic: move assignment
 json& json::operator=(json&& rhs){
-    json::impl* aux = this->pimpl;
     if (this != &rhs) {
-        this->pimpl = rhs.pimpl;
-        rhs.pimpl = aux; // qu&&o chiamo il distruttore non intacco il pimpl che ho spostato
+        pimpl->delete_everything();
+        delete pimpl; // Dealloca il pimpl corrente prima di sovrascriverlo
+        pimpl = rhs.pimpl;
+        rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
     }
     return *this;
 }
 // move semantics: move constructor
 json::json(json&& rhs){
-    *this = std::move(rhs); 
+    pimpl = rhs.pimpl;
+    rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
 }
 // return true if this is json(list)
 bool json::is_list() const {
@@ -868,20 +873,32 @@ string JSTRING (std::istream& rhs){
     string s;
 
     while (c != '"'){
-        c = rhs.get(); //prendo un carattere senza leggerlo.
+        c = rhs.get(); //prendo un carattere consumandolo.
 
         if (c == '"') rhs.putback(c); // se trovo una virgoletta di chiusura devo rimetterla in rhs e uscire dal ciclo
         else {
             if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
             
-            if (c !='\\') s += c; //lo metto nella stringa.
+            if (c !='\\') {
+                s += c; //lo metto nella stringa.
+                c = rhs.peek();
+            }
 
             else { //se mi becco davanti un carattere di escape, devo controllare se ho una virgoletta (perché non si chiuda la str)
                 if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
                 c = rhs.get(); //consumo anche il carattere seguente 
-                if (c != '"') s += '\\'; 
-                s += c;
-                c = rhs.peek(); // per evitare problemi in guardia, guardo già all'iterazione successiva
+                if (c == '"') {     // se trovo /", che è l'unica cosa di cui mi devo preoccupare, li inserisco entrambi
+                    s += '\\'; 
+                    s += c;
+                    c = rhs.peek(); // per evitare problemi in guardia, guardo già all'iterazione successiva
+                }
+                // altrimenti devo buttarne solo uno
+                else {
+                    s += '\\';
+                    // la guardia è già pronta nel modo corretto (c è settato), però devo rimettere nello stream il carattere, altrimenti
+                    // nell'iterazione sucessiva il rhs.get() mi fa perdere un carattere per strada
+                    rhs.putback(c);
+                }
             }
         }
 
@@ -916,6 +933,7 @@ std::ostream& operator<<(std::ostream& lhs, json const& rhs){
     return lhs;
 }
 
+/*
 string string_aux (std::istream& rhs){
     // è  uguale a jstring, cambia però la gestione dei "\"
 
@@ -923,7 +941,7 @@ string string_aux (std::istream& rhs){
     if (c == -1) error_handler("stringa, sono in EOF", EOF);
     string s;
     while (c != '"'){
-        c = rhs.get(); //prendo un carattere senza leggerlo.
+        c = rhs.get(); //prendo un carattere.
         if (c == '"') rhs.putback(c); // se trovo una virgoletta di chiusura devo rimetterla in rhs e uscire dal ciclo
         else {
             if (rhs.peek() == -1) error_handler("stringa, sono in EOF", EOF);
@@ -938,6 +956,7 @@ string string_aux (std::istream& rhs){
     }
     return s; //ho già rimesso nello stream la ".
 }
+*/
 
 // operatore di input, da dove parte il tutto
 std::istream& operator>>(std::istream& lhs, json& rhs){
@@ -946,18 +965,12 @@ std::istream& operator>>(std::istream& lhs, json& rhs){
     while (!lhs.eof()) {
         //prendo tutto quello che mi si pone davanti, fino alla prima "
         string aux1;
-        //cout<<(char)lhs.peek()<<"     ";
         std::getline(lhs, aux1, '"');
-        /*
-        cout<<(char)lhs.peek()<<endl;
-        cout<<aux1.length()<<endl;
-        */
         
         //a questo che ho estratto, tolgo tutti gli spazi
         if (aux1.length() != 0) {
             std::istringstream aux_stream(aux1);
             while(!aux_stream.eof()) {
-                //cout<<(char)lhs.peek()<<"     "<<(char)aux_stream.peek()<<endl;
                 string aux;
                 aux_stream>>aux;
                 string_without_spaces += aux;
@@ -965,10 +978,11 @@ std::istream& operator>>(std::istream& lhs, json& rhs){
         }  
 
         //ora parso la stringa
-        char c = lhs.peek();
+        char c = lhs.peek(); // con getline(), ho già consumato la " di apertura
         if (c != -1){
             string_without_spaces += '"';
-            string_without_spaces += string_aux(lhs);
+
+            string_without_spaces += JSTRING(lhs);
             string_without_spaces += '"';
             lhs>>c; lhs.peek(); //consumo le virgolette di chiusura
         }

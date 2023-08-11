@@ -1,5 +1,7 @@
+#include "json.cpp"
 
 int main() {
+    
     std::ifstream file("myfile.json");
     if (!file) {
         std::cerr << "Errore nell'apertura del file." << std::endl;
@@ -55,9 +57,9 @@ int main() {
 
     try {
 
-    std::ifstream file("large-file.json");
+    std::ifstream file("json2.json");
         file >> j;
-        std::ofstream fileoo("large-file_letto.json");
+        std::ofstream fileoo("json2_letto.json");
         fileoo<<j;
     } catch (const json_exception& e) {
         std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;

@@ -69,8 +69,10 @@ void json::impl::cancella_dict(){
 }
 // distruttore
 json::~json(){
-    pimpl->delete_everything(); // svuoto il contenuto di pimpl
-    delete pimpl;   // dealloco pimpl
+    if (pimpl){
+        pimpl->delete_everything(); // svuoto il contenuto di pimpl
+        delete pimpl;   // dealloco pimpl
+    }
 }
 //copia (deep) lo stato di rhs su this
 void json::impl::copy(json const & rhs){
@@ -99,27 +101,36 @@ void json::impl::copia_dict(Dict const & rhs){
 }
 // move semantic: move assignment
 json& json::operator=(json&& rhs){
-    json::impl* aux = this->pimpl;
     if (this != &rhs) {
-        this->pimpl = rhs.pimpl;
-        rhs.pimpl = aux; // quando chiamo il distruttore non intacco il pimpl che ho spostato
+        pimpl->delete_everything();
+        delete pimpl; // Dealloca il pimpl corrente prima di sovrascriverlo
+        pimpl = rhs.pimpl;
+        rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
     }
     return *this;
 }
 // move semantics: move constructor
 json::json(json&& rhs){
-    *this = std::move(rhs); 
+    pimpl = rhs.pimpl;
+    rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
 }
 // rendo this un json(list) con lista vuota
 void json::set_dictionary(){
     pimpl->delete_everything();
     pimpl->Tipo = pimpl->diz; 
 }
-// [solo per debugging, per togliere complessità] so come è fatto il main, i puntatori sono null
+// per semplicità, so come è fatto il main, i puntatori sono null quindi non ho bisogno di un controllo a riguardo
 void json::insert(pair<string,json> const& x){
-    pimpl->dict_head = pimpl->dict_tail = new impl::Dizionario;
-    pimpl->dict_head->next = nullptr;
-    pimpl->dict_head->info = x;
+    if (pimpl->dict_head == nullptr) {
+        pimpl->dict_head = new impl::Dizionario;
+        pimpl->dict_tail = pimpl->dict_head;
+    } else {
+        pimpl->dict_tail->next = new impl::Dizionario;
+        pimpl->dict_tail = pimpl->dict_tail->next;
+    }
+    
+    pimpl->dict_tail->info = x;
+    pimpl->dict_tail->next = nullptr;
 }
 int main() {
 //creo un oggetto di tipo json, che inizialmente è completamente vuoto. poi lo setto a dizionario (cambio solo il tipo, rimane vuoto). cerco di popolarlo ma la copia dall'oggetto temporaneo in pair all'oggetto finale (move semantics) va in segfault

@@ -1,6 +1,7 @@
 #include "json.hpp"
-#include <fstream>
 #include <sstream>
+#include <fstream>
+
 
 using std::cout;
 using std::cin;
@@ -92,8 +93,10 @@ void json::impl::cancella_dict(){
 }
 // distruttore
 json::~json(){
-    pimpl->delete_everything(); // svuoto il contenuto di pimpl
-    delete pimpl;   // dealloco pimpl
+    if (pimpl){
+        pimpl->delete_everything(); // svuoto il contenuto di pimpl
+        delete pimpl;   // dealloco pimpl
+    }
 }
 // su un json di tipo null, copia (deep) lo stato di rhs su this
 void json::impl::copy(json const & rhs){
@@ -153,16 +156,18 @@ void json::impl::copia_dict(Dict const & rhs){
 }
 // move semantic: move assignment
 json& json::operator=(json&& rhs){
-    json::impl* aux = this->pimpl;
     if (this != &rhs) {
-        this->pimpl = rhs.pimpl;
-        rhs.pimpl = aux; // qu&&o chiamo il distruttore non intacco il pimpl che ho spostato
+        pimpl->delete_everything();
+        delete pimpl; // Dealloca il pimpl corrente prima di sovrascriverlo
+        pimpl = rhs.pimpl;
+        rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
     }
     return *this;
 }
 // move semantics: move constructor
 json::json(json&& rhs){
-    *this = std::move(rhs); 
+    pimpl = rhs.pimpl;
+    rhs.pimpl = nullptr; // Il pimpl dell'oggetto sorgente deve essere lasciato in uno stato valido
 }
 // return true if this is json(list)
 bool json::is_list() const {
@@ -989,72 +994,3 @@ std::istream& operator>>(std::istream& lhs, json& rhs){
     }
     return lhs;
 }
-
-int main() {
-    std::ifstream file("myfile.json");
-    if (!file) {
-        std::cerr << "Errore nell'apertura del file." << std::endl;
-        return 1;
-    }
-
-    json j;
-    try {
-        file >> j;
-
-        std::cout<< "JSON letto:\n" << j << std::endl;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    std::cout<<endl<<"testcases:"<<endl;
-
-    try {
-    json& y = *(++j.begin_list());
-    std::cout << y["quarta chiave"]["a"]<<endl;
-
-    json z;
-    z.set_dictionary();
-    cout<<z<<endl;
-    json aux;
-    aux.set_number(5);
-    cout<<aux<<endl;
-    cout<<z<<endl;
-    aux.set_number(6);
-    cout<<aux<<endl;
-   
-
-    // aux è una variabile di tipo json (in questo caso specifico, un numero)
-
-    pair<string,json> p;
-    p.first = string{"d"}; 
-    p.second = aux;
-    z.insert(p);
-
-    z.insert({"ciao", json{}});
-
-
-    cout<<z<<endl;
-
-    (*(++j.begin_list()))["prima chiave"] = z;
-
-    cout<<j<<endl;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    try {
-
-    std::ifstream file("large-file.json");
-        file >> j;
-        std::ofstream fileoo("large-file_letto.json");
-        fileoo<<j;
-    } catch (const json_exception& e) {
-        std::cerr << "Errore nel parsing del JSON: " << e.msg << std::endl;
-        return 1;
-    }
-
-    return 0;
-}
-
