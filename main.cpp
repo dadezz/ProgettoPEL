@@ -53,6 +53,11 @@ int main() {
 
     z.insert({"ciao", json{}});
 
+    std::cout<<"\n====================\nquarto e mezzo TESTCASE, move semantics"<<std::endl;
+    std::cout<<"====================\n"<<std::endl;
+
+    json u = z;
+
     std::cout<<"\n====================\nQUINTO TESTCASE, move semantics"<<std::endl;
     std::cout<<"====================\n"<<std::endl;
 

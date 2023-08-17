@@ -75,7 +75,8 @@ json::json(){
 // copy constructor
 json::json(json const& rhs){
     if (this != &rhs){
-        this->pimpl = new impl(*(rhs.pimpl));
+        this->pimpl = new impl;
+        pimpl->copy(*(rhs.pimpl));
     }
 }
 // copy assignment
