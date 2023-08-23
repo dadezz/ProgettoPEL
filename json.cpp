@@ -319,7 +319,7 @@ void json::set_dictionary(){
 }
 // se this è json(list), aggiungo x in testa, altrimenti throw exception
 void json::push_front(json const& x){
-    if (not is_list()){
+    if (is_list()){
         if (pimpl->list_head == nullptr) {
             pimpl->list_head = pimpl->list_tail = new impl::Lista;
             pimpl->list_head->next = nullptr;
